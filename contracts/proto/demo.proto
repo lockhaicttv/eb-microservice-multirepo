@@ -1,0 +1,175 @@
+syntax = "proto3";
+
+package demo;
+
+// ============ Auth ============
+
+message User {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+}
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string name = 3;
+}
+
+message RegisterResponse {
+  string accessToken = 1;
+  User user = 2;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string accessToken = 1;
+  User user = 2;
+}
+
+message ValidateTokenRequest {
+  string accessToken = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  User user = 2;
+}
+
+// ============ Catalog ============
+
+message Product {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  double price = 4;
+  int32 stock = 5;
+}
+
+message ListProductsRequest {
+  string query = 1;
+}
+
+message ListProductsResponse {
+  repeated Product products = 1;
+}
+
+message GetProductRequest {
+  string productId = 1;
+}
+
+message GetProductResponse {
+  Product product = 1;
+}
+
+// ============ Order ============
+
+message OrderLine {
+  string productId = 1;
+  string productName = 2;
+  double unitPrice = 3;
+  int32 quantity = 4;
+}
+
+message Order {
+  string id = 1;
+  string userId = 2;
+  repeated OrderLine lineItems = 3;
+  double totalAmount = 4;
+  string status = 5;
+  string createdAt = 6;
+}
+
+message CreateOrderRequest {
+  string userId = 1;
+  repeated OrderLine lineItems = 2;
+}
+
+message CreateOrderResponse {
+  Order order = 1;
+}
+
+message GetOrderRequest {
+  string orderId = 1;
+}
+
+message GetOrderResponse {
+  Order order = 1;
+}
+
+message ListOrdersRequest {
+  string userId = 1;
+}
+
+message ListOrdersResponse {
+  repeated Order orders = 1;
+}
+
+// ============ Payment ============
+
+message Payment {
+  string id = 1;
+  string orderId = 2;
+  string userId = 3;
+  double totalAmount = 4;
+  string status = 5;
+  string reason = 6;
+  string createdAt = 7;
+}
+
+message ListPaymentsRequest {
+  string orderId = 1;
+}
+
+message ListPaymentsResponse {
+  repeated Payment payments = 1;
+}
+
+// ============ Notification ============
+
+message Notification {
+  string id = 1;
+  string userId = 2;
+  string type = 3;
+  string message = 4;
+  string createdAt = 5;
+}
+
+message ListNotificationsRequest {
+  string userId = 1;
+}
+
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+}
+
+// ============ Services ============
+
+service AuthService {
+  rpc Register (RegisterRequest) returns (RegisterResponse);
+  rpc Login (LoginRequest) returns (LoginResponse);
+  rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse);
+}
+
+service CatalogService {
+  rpc ListProducts (ListProductsRequest) returns (ListProductsResponse);
+  rpc GetProduct (GetProductRequest) returns (GetProductResponse);
+}
+
+service OrderService {
+  rpc CreateOrder (CreateOrderRequest) returns (CreateOrderResponse);
+  rpc GetOrder (GetOrderRequest) returns (GetOrderResponse);
+  rpc ListOrders (ListOrdersRequest) returns (ListOrdersResponse);
+}
+
+service PaymentService {
+  rpc ListPayments (ListPaymentsRequest) returns (ListPaymentsResponse);
+}
+
+service NotificationService {
+  rpc ListNotifications (ListNotificationsRequest) returns (ListNotificationsResponse);
+}

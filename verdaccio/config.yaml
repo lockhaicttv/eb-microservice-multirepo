@@ -1,0 +1,29 @@
+storage: /verdaccio/storage
+
+auth:
+  htpasswd:
+    file: /verdaccio/storage/htpasswd
+
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+
+packages:
+  '@demo/*':
+    access: $all
+    publish: $all
+    unpublish: $all
+  '**':
+    access: $all
+    publish: $authenticated
+    unpublish: $authenticated
+    proxy: npmjs
+
+max_body_size: 100mb
+
+web:
+  enable: true
+  title: demo-protobuf-registry
+
+logs:
+  - { type: stdout, format: pretty, level: http }
