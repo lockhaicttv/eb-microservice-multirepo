@@ -15,7 +15,7 @@ export class KafkaBridgeService implements OnModuleInit {
   async onModuleInit() {
     const kafka = new Kafka({
       clientId: 'demo-notification-bff-bridge',
-      brokers: [this.config.get<string>('KAFKA_BROKER') ?? 'localhost:9092'],
+      brokers: [this.config.get<string>('KAFKA_BROKER') ?? 'localhost:29092'],
     });
 
     const consumer: Consumer = kafka.consumer({ groupId: 'demo-notification-bff-bridge' });

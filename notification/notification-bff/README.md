@@ -5,7 +5,7 @@ Per-service GraphQL facade for the notification-backend with notification subscr
 - GraphQL: `http://localhost:4105/demo/notification/graphql` (override `PORT`)
 - Talks to: notification-backend over gRPC (`NOTIFICATION_GRPC_URL`, default `localhost:5105`)
 - Validates Bearer tokens via auth-backend (`AUTH_GRPC_URL`, default `localhost:5101`)
-- Kafka bridge (`localhost:9092`) streams `demo.notification.created` to the `notificationCreated` subscription
+- Kafka bridge (`localhost:29092`) streams `demo.notification.created` to the `notificationCreated` subscription
 
 ## Run
 

@@ -15,7 +15,7 @@ npm run build
 npm start:prod
 ```
 
-Requires Kafka (`localhost:9092`) and catalog-backend to be running.
+Requires Kafka (`localhost:29092`) and catalog-backend to be running.
 
 ## Endpoints (proto `OrderService`)
 

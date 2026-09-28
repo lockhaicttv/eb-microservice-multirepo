@@ -140,7 +140,7 @@ To force the DECLINED path, buy event `e-5` (VIP Backstage Pass, 12000 > 10000 l
 docker compose up -d
 ```
 
-- Kafka broker `localhost:9092`, UI `http://localhost:8080`
+- Kafka broker `localhost:29092` (host apps); Kafka UI `http://localhost:8080`
 - Verdaccio `http://localhost:4873` (user `demo` / `demo123`)
 - Conductor/Orkes UI `http://localhost:8082`
 

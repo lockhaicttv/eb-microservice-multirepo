@@ -15,7 +15,7 @@ export const KAFKA_PRODUCER = Symbol('KAFKA_PRODUCER');
       useFactory: (config: ConfigService) =>
         new Kafka({
           clientId: 'demo-notification-backend',
-          brokers: [config.get<string>('KAFKA_BROKER') ?? 'localhost:9092'],
+          brokers: [config.get<string>('KAFKA_BROKER') ?? 'localhost:29092'],
         }),
       inject: [ConfigService],
     },
