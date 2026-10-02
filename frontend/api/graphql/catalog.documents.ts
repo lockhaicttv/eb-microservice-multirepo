@@ -7,6 +7,7 @@ export const CATALOG_DOCUMENTS = {
         blurb
         ticketPrice
         ticketsLeft
+        ownerUserId
       }
     }
   `,
@@ -18,6 +19,31 @@ export const CATALOG_DOCUMENTS = {
         blurb
         ticketPrice
         ticketsLeft
+        ownerUserId
+      }
+    }
+  `,
+  MY_EVENTS: /* GraphQL */ `
+    query MyEvents {
+      myEvents {
+        id
+        title
+        blurb
+        ticketPrice
+        ticketsLeft
+        ownerUserId
+      }
+    }
+  `,
+  CREATE_EVENT: /* GraphQL */ `
+    mutation CreateEvent($input: CreateEventInput!) {
+      createEvent(input: $input) {
+        id
+        title
+        blurb
+        ticketPrice
+        ticketsLeft
+        ownerUserId
       }
     }
   `

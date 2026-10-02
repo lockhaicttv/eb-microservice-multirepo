@@ -54,7 +54,7 @@ const TopNav = () => {
   const pathname = usePathname()
   const router = useRouter()
   const [search, setSearch] = useState('')
-  const { canViewAdminDashboard } = usePermissions()
+  const { canManageEvents, canViewAdminDashboard } = usePermissions()
 
   const submitSearch = (value: string) => {
     router.push(value ? `/?search=${encodeURIComponent(value)}` : '/')
@@ -110,9 +110,9 @@ const TopNav = () => {
             <Icon name='notifications' className='text-[22px]' />
             <span className='absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-tertiary-container ring-2 ring-surface'></span>
           </Link>
-          {/* Owner event creation ships with the catalog domain. It is not
-              linked yet because app/events/[id]/page.tsx would swallow
-              /events/new and render the event page for an id called "new". */}
+          <NavLink href='/my-events' icon='verified_user' title='My events'>
+            {canManageEvents ? 'My events' : null}
+          </NavLink>
           <NavLink href='/admin' icon='admin_panel_settings' title='Admin'>
             {canViewAdminDashboard ? 'Admin' : null}
           </NavLink>

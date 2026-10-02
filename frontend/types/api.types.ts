@@ -6,6 +6,8 @@ export interface EventModel {
   blurb: string
   ticketPrice: number
   ticketsLeft: number
+  /** Empty string for platform-curated events, which have no human owner. */
+  ownerUserId: string
 }
 
 export interface OrderTicketModel {

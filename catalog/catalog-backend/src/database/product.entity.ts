@@ -49,12 +49,12 @@ export class ProductEntity {
   stock!: number;
 
   @Index('idx_products_owner_user_id')
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ name: 'owner_user_id', type: 'uuid', nullable: true })
   ownerUserId!: string | null;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
 }

@@ -1,6 +1,8 @@
 export const catalogQueryKey = {
   getAllEvents: (search?: string) => ['get-all-events', search] as const,
-  getEvent: (id: string) => ['get-event', id] as const
+  getEvent: (id: string) => ['get-event', id] as const,
+  /** Owner-only: the caller's own listings. */
+  getMyEvents: () => ['get-my-events'] as const
 }
 
 export const orderQueryKey = {

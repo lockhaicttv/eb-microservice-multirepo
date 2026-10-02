@@ -76,6 +76,7 @@ const AdminList = () => {
     else if (!canViewAdminDashboard) router.replace('/')
   }, [hydrated, isAuthenticated, canViewAdminDashboard, router])
 
+
   if (!hydrated || !isAuthenticated || !canViewAdminDashboard) return null
 
   const counts = (users ?? []).reduce<Record<string, number>>((acc, user) => {

@@ -110,22 +110,20 @@ export class CatalogController {
   ) {}
 
   @GrpcMethod(CATALOG_SERVICE_NAME, 'ListProducts')
-  listProducts(req: ListProductsRequest): ListProductsResponse {
-    return this.handle('ListProducts', async () => ({
-      products: await this.products.list(req?.query),
-    }));
+  async listProducts(req: ListProductsRequest): Promise<ListProductsResponse> {
+    const products = await handle(this.logger, 'listProducts', () => this.products.list(req?.query));
+    return { products };
   }
 
   @GrpcMethod(CATALOG_SERVICE_NAME, 'GetProduct')
-  getProduct(req: GetProductRequest): GetProductResponse {
-    return this.handle('GetProduct', async () => ({
-      product: await this.products.get(req.productId),
-    }));
+  async getProduct(req: GetProductRequest): Promise<GetProductResponse> {
+    const product = await handle(this.logger, 'getProduct', () => this.products.get(req.productId));
+    return { product };
   }
 
   @GrpcMethod(CATALOG_SERVICE_NAME, 'CreateProduct')
-  createProduct(req: CreateProductRequest): CreateProductResponse {
-    return this.handle('CreateProduct', async () => {
+  async createProduct(req: CreateProductRequest): Promise<CreateProductResponse> {
+    const product = await handle(this.logger, 'createProduct', async () => {
       const owner = await this.requireEventManager(req.accessToken);
       const listing = validateListing({
         name: req.name,
@@ -133,16 +131,18 @@ export class CatalogController {
         price: req.price,
         stock: req.stock,
       });
-      return { product: await this.products.create({ ...listing, ownerUserId: owner.id }) };
+      return this.products.create({ ...listing, ownerUserId: owner.id });
     });
+    return { product };
   }
 
   @GrpcMethod(CATALOG_SERVICE_NAME, 'ListOwnerProducts')
-  listOwnerProducts(req: ListOwnerProductsRequest): ListOwnerProductsResponse {
-    return this.handle('ListOwnerProducts', async () => {
-      const owner = await this.requireEventManager(req.accessToken);
-      return { products: await this.products.listByOwner(owner.id) };
+  async listOwnerProducts(req: ListOwnerProductsRequest): Promise<ListOwnerProductsResponse> {
+    const products = await handle(this.logger, 'listOwnerProducts', async () => {
+      const owner = await this.requireEventManager(req.accessToken ?? '');
+      return this.products.listByOwner(owner.id);
     });
+    return { products };
   }
 
   /**
@@ -158,22 +158,5 @@ export class CatalogController {
       throw new CatalogError('PERMISSION_DENIED', 'FORBIDDEN');
     }
     return user;
-  }
-
-  /**
-   * Run a handler and convert a domain error into a gRPC status. Anything not
-   * modelled as a CatalogError is an unexpected fault and is logged with its
-   * stack before being reported as INTERNAL, so the client never sees internals.
-   */
-  private async handle<T>(operation: string, run: () => Promise<T>): Promise<T> {
-    try {
-      return await run();
-    } catch (err) {
-      if (err instanceof CatalogError) {
-        throw new RpcException({ code: GRPC_STATUS_BY_CODE[err.code], details: err.message });
-      }
-      this.logger.error(`${operation} failed`, err instanceof Error ? err.stack : undefined);
-      throw new RpcException({ code: GrpcStatus.INTERNAL, details: 'INTERNAL' });
-    }
   }
 }
