@@ -4,10 +4,20 @@ package demo;
 
 // ============ Auth ============
 
+// Roles travel as a plain string rather than a proto enum, so a service running
+// an older contract still parses a role it has never seen. Consumers must treat
+// an unknown value as CUSTOMER (least privilege).
+// Defined roles: "ADMIN", "EVENT_OWNER", "CUSTOMER".
+
 message User {
   string id = 1;
   string email = 2;
   string name = 3;
+  // Role governs what this user may do. Registered users are always CUSTOMER;
+  // promotion to EVENT_OWNER / ADMIN is an admin-only operation, so the role is
+  // never accepted as input on Register.
+  // One of: ADMIN, EVENT_OWNER, CUSTOMER.
+  string role = 4;
 }
 
 message RegisterRequest {
@@ -38,6 +48,27 @@ message ValidateTokenRequest {
 message ValidateTokenResponse {
   bool valid = 1;
   User user = 2;
+}
+
+// Admin-only reads and role management. The caller proves it is an admin by
+// passing its own accessToken: the backend re-verifies it against this service
+// rather than trusting the BFF to have done the check.
+message ListUsersRequest {
+  string accessToken = 1;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+message SetUserRoleRequest {
+  string accessToken = 1;
+  string userId = 2;
+  string role = 3;
+}
+
+message SetUserRoleResponse {
+  User user = 1;
 }
 
 // ============ Catalog ============
@@ -153,6 +184,10 @@ service AuthService {
   rpc Register (RegisterRequest) returns (RegisterResponse);
   rpc Login (LoginRequest) returns (LoginResponse);
   rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse);
+  // Admin only. Rejects with PERMISSION_DENIED unless accessToken belongs to
+  // an ADMIN.
+  rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
+  rpc SetUserRole (SetUserRoleRequest) returns (SetUserRoleResponse);
 }
 
 service CatalogService {

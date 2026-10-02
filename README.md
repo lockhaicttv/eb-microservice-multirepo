@@ -104,7 +104,8 @@ To force the DECLINED path, buy event `e-5` (VIP Backstage Pass, 12000 > 10000 l
 | BFFs (GraphQL) | NestJS 10, **Apollo Server** (`@nestjs/apollo`, `@nestjs/graphql`), `graphql-ws`, `graphql-subscriptions` |
 | Contract | Protobuf — one `demo.proto`, typed clients & Kafka topics in `@demo/contracts` |
 | Events | **Apache Kafka** (`kafkajs`) + Kafka UI |
-| Auth | **JWT** (`@nestjs/jwt`) issued by `auth-backend` |
+| Auth | **JWT** (`@nestjs/jwt`) issued by `auth-backend`; roles resolved from Postgres on every validation |
+| Persistence | **PostgreSQL** + **TypeORM** — one database per domain, migrations only |
 | Workflow | **Orkes / Conductor** workflow engine |
 | Registry | **Verdaccio** — local private npm registry for `@demo/contracts` |
 | Frontend | **Next.js 16** (Turbopack), React 19, **TanStack Query**, `graphql-request`, `graphql-ws`, **Zustand**, Tailwind CSS 4 |
@@ -115,8 +116,8 @@ To force the DECLINED path, buy event `e-5` (VIP Backstage Pass, 12000 > 10000 l
 | Repo/dir | Scope | Port |
 |---|---|---|
 | `contracts/` | `@demo/contracts` — one `demo.proto`, typed gRPC clients, Kafka topic constants. Published to a local Verdaccio registry. | npm `http://localhost:4873` |
-| `auth/auth-backend/` | gRPC service — register/login/validate-token (JWT). | gRPC `:5101` |
-| `auth/auth-bff/` | GraphQL facade for auth. | HTTP/WS `:4101/demo/auth/graphql` |
+| `auth/auth-backend/` | gRPC service — register/login/validate-token (JWT), user roles, admin user management. Owns the `auth` database. | gRPC `:5101` |
+| `auth/auth-bff/` | GraphQL facade for auth, incl. role-aware `me`, admin `users` / `setUserRole`. | HTTP/WS `:4101/demo/auth/graphql` |
 | `catalog/catalog-backend/` | gRPC service — event catalog (seeded demo events). | gRPC `:5102` |
 | `catalog/catalog-bff/` | GraphQL facade for catalog. | HTTP/WS `:4102/demo/catalog/graphql` |
 | `order/order-backend/` | gRPC service — orders; Kafka producer; calls catalog over gRPC; starts the Orkes `order_flow`. | gRPC `:5103` |
@@ -140,6 +141,8 @@ To force the DECLINED path, buy event `e-5` (VIP Backstage Pass, 12000 > 10000 l
 docker compose up -d
 ```
 
+- Postgres `localhost:5432` (user `demo` / `demo123`) — one database per domain:
+  `auth`, `catalog`, `order`, `payment`, `notification`
 - Kafka broker `localhost:29092` (host apps); Kafka UI `http://localhost:8080`
 - Verdaccio `http://localhost:4873` (user `demo` / `demo123`)
 - Conductor/Orkes UI `http://localhost:8082`
@@ -164,6 +167,8 @@ For each of `auth/auth-backend`, `catalog/catalog-backend`, `order/order-backend
 ```bash
 cd <domain>/<service>
 npm install
+npm run migration:run     # only where a database exists (see below)
+npm run seed              # optional demo data
 npm run build
 npm start:prod
 ```
@@ -214,11 +219,46 @@ Open `http://localhost:3000`.
 
 ## Notes
 
-- State is **in-memory** per service (users, events, orders, payments,
-  notifications); restarting a service clears its data.
+- State is **in-memory** per service (events, orders, payments, notifications);
+  restarting a service clears its data. `auth` is the exception: it persists to
+  Postgres, so accounts survive a restart.
 - The BFFs are thin: auth checks, field mapping, and the event bridge. Business
   rules (payment limits, order lifecycle) live in the backends, EQM-style.
 - The gRPC wire keeps the `products` vocabulary (contract-first, `@demo/contracts`
-  v0.3.0); the event/ticket domain is exposed at the BFF GraphQL layer.
+  v0.4.1); the event/ticket domain is exposed at the BFF GraphQL layer.
+
+## Roles
+
+`auth-backend` is the single source of truth for authorization. Roles are stored
+in `users.role` (`ADMIN`, `EVENT_OWNER`, `CUSTOMER`) and returned by
+`ValidateToken`, so every BFF learns a caller's role from the auth service it
+already talks to.
+
+Three decisions worth knowing before extending this to other domains:
+
+- **The role is not in the JWT.** It is resolved from the database on every
+  validation, so a demotion takes effect immediately rather than lingering until
+  the token expires. The trade-off is one extra query per validation.
+- **Registration always creates `CUSTOMER`.** There is no role argument anywhere
+  on the register path — a client can never pick its own role. An admin promotes
+  a user through `SetUserRole`, which itself only moves between `CUSTOMER` and
+  `EVENT_OWNER`; granting `ADMIN` is a manual, audited database operation.
+- **Roles are capabilities, not a ranking.** `ADMIN > EVENT_OWNER > CUSTOMER`
+  would be wrong, since an event owner must not inherit admin powers. `ADMIN` is
+  the only role implying every capability. Unknown role values fail closed to
+  `CUSTOMER` in the backend, the BFF, and the frontend.
+
+Backend-side authorization is **not** delegated to the BFF. Admin operations take
+the caller's own `accessToken` and re-verify it against the auth database, so
+reaching a gRPC port directly does not bypass the role check. The BFF's own check
+is a UX affordance that produces a friendly error before the round trip.
+
+Frontend gating (`usePermissions`, the `/admin` route guard) is presentation only
+and deliberately duplicates none of that enforcement.
+
+Current coverage: role storage, enforcement, and the admin user list are done for
+**auth**. The admin page lists users and promotes owners; the cross-domain
+"see all data" views (all orders, payments, notifications, events) and the
+owner-only event-creation flow are not implemented yet.
 - CORS is scoped to `http://localhost:3000` on every BFF.
 - Set `ORKES_ENABLED=false` to run the demo without Conductor.

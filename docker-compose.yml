@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: multirepo-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo123
+      POSTGRES_DB: postgres
+    volumes:
+      - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+      - postgres-storage:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   kafka:
     image: apache/kafka:3.7.0
     container_name: multirepo-kafka
@@ -48,4 +66,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres-storage:
   verdaccio-storage:

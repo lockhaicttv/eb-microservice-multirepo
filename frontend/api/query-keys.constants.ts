@@ -9,7 +9,8 @@ export const orderQueryKey = {
 }
 
 export const authQueryKey = {
-  getMe: () => ['get-me'] as const
+  getMe: () => ['get-me'] as const,
+  getUsers: () => ['get-users'] as const
 }
 
 export const paymentQueryKey = {

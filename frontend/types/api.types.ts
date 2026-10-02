@@ -1,4 +1,4 @@
-export type { UserModel, AuthPayloadModel } from './user.types'
+export type { UserModel, AuthPayloadModel, UserRole } from './user.types'
 
 export interface EventModel {
   id: string

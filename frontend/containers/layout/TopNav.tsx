@@ -3,7 +3,45 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import Icon from '@/components/Icon'
+import usePermissions from '@/hooks/usePermissions'
+
+/**
+ * Renders nothing when the current role has no access, so an unauthorized link is
+ * absent from the DOM entirely rather than merely disabled. This is a UX
+ * affordance only — every admin/owner route and query is also gated server-side.
+ */
+const NavLink = ({
+  href,
+  icon,
+  title,
+  children
+}: {
+  href: string
+  icon: string
+  title: string
+  children: ReactNode
+}) => {
+  const pathname = usePathname()
+  if (!children) return null
+
+  const isActive = pathname === href
+
+  return (
+    <Link
+      href={href}
+      title={title}
+      className={
+        isActive
+          ? 'p-2 rounded-full text-primary bg-primary/10 transition-colors'
+          : 'p-2 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors'
+      }
+    >
+      <Icon name={icon} className='text-[22px]' />
+    </Link>
+  )
+}
 
 const NAV_LINKS = [
   { label: 'Concerts', href: '/' },
@@ -16,6 +54,7 @@ const TopNav = () => {
   const pathname = usePathname()
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const { canViewAdminDashboard } = usePermissions()
 
   const submitSearch = (value: string) => {
     router.push(value ? `/?search=${encodeURIComponent(value)}` : '/')
@@ -71,6 +110,12 @@ const TopNav = () => {
             <Icon name='notifications' className='text-[22px]' />
             <span className='absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-tertiary-container ring-2 ring-surface'></span>
           </Link>
+          {/* Owner event creation ships with the catalog domain. It is not
+              linked yet because app/events/[id]/page.tsx would swallow
+              /events/new and render the event page for an id called "new". */}
+          <NavLink href='/admin' icon='admin_panel_settings' title='Admin'>
+            {canViewAdminDashboard ? 'Admin' : null}
+          </NavLink>
           <Link
             href='/profile'
             className='flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-surface-container border border-outline-variant/40 hover:border-primary transition-all'

@@ -28,6 +28,30 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  role: UserRole;
+}
+
+/**
+ * Roles travel as plain strings (matching the proto `string role` field) so an
+ * older consumer can parse a role it does not know yet. `isRole` is the single
+ * validation point; anything unrecognised must be treated as CUSTOMER.
+ */
+export const USER_ROLES = {
+  ADMIN: 'ADMIN',
+  EVENT_OWNER: 'EVENT_OWNER',
+  CUSTOMER: 'CUSTOMER',
+} as const;
+
+export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
+
+export const ALL_USER_ROLES: readonly UserRole[] = [
+  USER_ROLES.ADMIN,
+  USER_ROLES.EVENT_OWNER,
+  USER_ROLES.CUSTOMER,
+];
+
+export function isRole(value: unknown): value is UserRole {
+  return typeof value === 'string' && (ALL_USER_ROLES as readonly string[]).includes(value);
 }
 
 export interface RegisterRequest {
@@ -57,6 +81,26 @@ export interface ValidateTokenRequest {
 
 export interface ValidateTokenResponse {
   valid: boolean;
+  user?: User;
+}
+
+// Admin-only. The caller passes its own accessToken; the auth backend
+// re-verifies it rather than trusting the caller to have checked.
+export interface ListUsersRequest {
+  accessToken: string;
+}
+
+export interface ListUsersResponse {
+  users: User[];
+}
+
+export interface SetUserRoleRequest {
+  accessToken: string;
+  userId: string;
+  role: UserRole;
+}
+
+export interface SetUserRoleResponse {
   user?: User;
 }
 
@@ -188,6 +232,8 @@ export interface AuthServiceClient {
   register(request: RegisterRequest): Observable<RegisterResponse>;
   login(request: LoginRequest): Observable<LoginResponse>;
   validateToken(request: ValidateTokenRequest): Observable<ValidateTokenResponse>;
+  listUsers(request: ListUsersRequest): Observable<ListUsersResponse>;
+  setUserRole(request: SetUserRoleRequest): Observable<SetUserRoleResponse>;
 }
 
 export interface CatalogServiceClient {
