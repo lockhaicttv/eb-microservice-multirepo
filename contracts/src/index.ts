@@ -114,6 +114,8 @@ export interface Product {
   description: string;
   price: number;
   stock: number;
+  /** Empty string for platform-curated (seeded) events, which have no owner. */
+  ownerUserId: string;
 }
 
 export interface ListProductsRequest {
@@ -130,6 +132,26 @@ export interface GetProductRequest {
 
 export interface GetProductResponse {
   product?: Product;
+}
+
+export interface CreateProductRequest {
+  accessToken: string;
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+}
+
+export interface CreateProductResponse {
+  product?: Product;
+}
+
+export interface ListOwnerProductsRequest {
+  accessToken: string;
+}
+
+export interface ListOwnerProductsResponse {
+  products: Product[];
 }
 
 // ------------------------------------------------------------------
@@ -239,6 +261,8 @@ export interface AuthServiceClient {
 export interface CatalogServiceClient {
   listProducts(request: ListProductsRequest): Observable<ListProductsResponse>;
   getProduct(request: GetProductRequest): Observable<GetProductResponse>;
+  createProduct(request: CreateProductRequest): Observable<CreateProductResponse>;
+  listOwnerProducts(request: ListOwnerProductsRequest): Observable<ListOwnerProductsResponse>;
 }
 
 export interface OrderServiceClient {

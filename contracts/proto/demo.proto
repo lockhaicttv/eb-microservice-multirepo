@@ -79,6 +79,10 @@ message Product {
   string description = 3;
   double price = 4;
   int32 stock = 5;
+  // Auth-backend user id of the event owner. Empty string means the event is
+  // platform-curated (the seeded listings) and belongs to no user.
+  // Field 6 was added in contract 0.5.0; older readers ignore it.
+  string ownerUserId = 6;
 }
 
 message ListProductsRequest {
@@ -95,6 +99,29 @@ message GetProductRequest {
 
 message GetProductResponse {
   Product product = 1;
+}
+
+// Event-owner writes. Like the auth admin RPCs, the caller proves its role by
+// passing its own accessToken: catalog-backend re-validates it against
+// auth-backend instead of trusting the BFF to have done the check.
+message CreateProductRequest {
+  string accessToken = 1;
+  string name = 2;
+  string description = 3;
+  double price = 4;
+  int32 stock = 5;
+}
+
+message CreateProductResponse {
+  Product product = 1;
+}
+
+message ListOwnerProductsRequest {
+  string accessToken = 1;
+}
+
+message ListOwnerProductsResponse {
+  repeated Product products = 1;
 }
 
 // ============ Order ============
@@ -191,8 +218,13 @@ service AuthService {
 }
 
 service CatalogService {
+  // Public browse surface: no token, every listing is visible to everyone.
   rpc ListProducts (ListProductsRequest) returns (ListProductsResponse);
   rpc GetProduct (GetProductRequest) returns (GetProductResponse);
+
+  // Owner surface (contract 0.5.0). EVENT_OWNER or ADMIN.
+  rpc CreateProduct (CreateProductRequest) returns (CreateProductResponse);
+  rpc ListOwnerProducts (ListOwnerProductsRequest) returns (ListOwnerProductsResponse);
 }
 
 service OrderService {
