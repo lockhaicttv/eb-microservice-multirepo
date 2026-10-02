@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { USER_ROLES, User, UserRole, isRole } from '@demo/contracts';
+import { USER_ROLES, User, UserRole, ValidateTokenResponse, isRole } from '@demo/contracts';
 import { UserEntity } from '../../database/user.entity';
 import { ASSIGNABLE_ROLES, capabilitiesFor } from './roles';
 
@@ -145,9 +145,29 @@ export class AuthService {
     return { accessToken: token, user: toContractUser(record) };
   }
 
-  async validateToken(accessToken: string) {
-    const user = await this.resolveUser(accessToken);
-    return user ? { valid: true, user } : { valid: false };
+  /**
+   * Poll endpoint: "who is this token?", never an error.
+   *
+   * `resolveUser` throws on a bad token, which is right for the admin operations
+   * below (401 vs 403 is the whole point there) but wrong here — other services
+   * call this on every request to learn the caller's identity, and an escaped
+   * AuthError would reach them as gRPC UNKNOWN (2) with the details stripped,
+   * turning an ordinary unauthenticated request into a 500.
+   *
+   * Only UNAUTHENTICATED is swallowed. Anything else is a real fault (DB down,
+   * bad uuid cast) and must keep propagating rather than masquerade as "no such
+   * user", which would log everyone out during an outage.
+   */
+  async validateToken(accessToken: string): Promise<ValidateTokenResponse> {
+    try {
+      const user = await this.resolveUser(accessToken);
+      return { valid: true, user };
+    } catch (err) {
+      if (err instanceof AuthError && err.code === 'UNAUTHENTICATED') {
+        return { valid: false };
+      }
+      throw err;
+    }
   }
 
   /**

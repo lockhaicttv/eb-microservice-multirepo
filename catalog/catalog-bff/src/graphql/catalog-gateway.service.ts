@@ -1,5 +1,5 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
-import { ClientGrpc } from '@nestjs/microservices';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ClientGrpcProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import {
   AUTH_SERVICE_NAME,
@@ -9,9 +9,9 @@ import {
   Product,
   USER_ROLES,
   User,
-  UserRole,
   isRole,
 } from '@demo/contracts';
+import { AUTH_GRPC_CLIENT, CATALOG_GRPC_CLIENT } from '../clients/grpc-client.tokens';
 
 export type EventDto = {
   id: string;
@@ -35,15 +35,17 @@ function toEventDto(p: Product): EventDto {
 }
 
 @Injectable()
-export class CatalogGatewayService implements OnModuleInit {
-  private client!: CatalogServiceClient;
-  private auth!: AuthServiceClient;
+export class CatalogGatewayService {
+  private readonly logger = new Logger(CatalogGatewayService.name);
+  private readonly client: CatalogServiceClient;
+  private readonly auth: AuthServiceClient;
 
-  constructor(@Inject(CATALOG_SERVICE_NAME) private readonly clients: ClientGrpc) {}
-
-  onModuleInit() {
-    this.client = this.clients.getService<CatalogServiceClient>(CATALOG_SERVICE_NAME);
-    this.auth = this.clients.getService<AuthServiceClient>(AUTH_SERVICE_NAME);
+  constructor(
+    @Inject(CATALOG_GRPC_CLIENT) catalogProxy: ClientGrpcProxy,
+    @Inject(AUTH_GRPC_CLIENT) authProxy: ClientGrpcProxy,
+  ) {
+    this.client = catalogProxy.getService<CatalogServiceClient>(CATALOG_SERVICE_NAME);
+    this.auth = authProxy.getService<AuthServiceClient>(AUTH_SERVICE_NAME);
   }
 
   async listEvents(search?: string): Promise<EventDto[]> {
@@ -88,12 +90,36 @@ export class CatalogGatewayService implements OnModuleInit {
    * Resolve a token to the current user, role included. The JWT payload carries
    * no role claim, so a promotion or demotion shows up on the very next request
    * instead of persisting until the token expires.
+   *
+   * An invalid token is answered by auth-backend as a gRPC `UNAUTHENTICATED`
+   * error, not as `{ valid: false }`. That is still an authentication failure,
+   * so it collapses to `null` here and the caller raises UNAUTHORIZED — letting
+   * the RpcException through would surface as a 500 "Internal server error",
+   * telling an unauthenticated caller far more than it should know and giving
+   * the frontend no 401 to branch on.
    */
   async validateToken(accessToken: string): Promise<User | null> {
-    const res = await firstValueFrom(this.auth.validateToken({ accessToken }));
-    if (!res.valid || !res.user) return null;
-    return withSafeRole(res.user);
+    try {
+      const res = await firstValueFrom(this.auth.validateToken({ accessToken }));
+      if (!res.valid || !res.user) return null;
+      return withSafeRole(res.user);
+    } catch (err) {
+      if (isUnauthenticated(err)) {
+        this.logger.debug(`token rejected by auth-backend: ${describe(err)}`);
+        return null;
+      }
+      throw err;
+    }
   }
+}
+
+/** gRPC status 16. Auth failures are expected here, everything else is a fault. */
+function isUnauthenticated(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: number }).code === 16;
+}
+
+function describe(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 /**

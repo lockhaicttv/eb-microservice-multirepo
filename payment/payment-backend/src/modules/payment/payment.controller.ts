@@ -12,7 +12,7 @@ export class PaymentController {
   constructor(private readonly payments: PaymentService) {}
 
   @GrpcMethod(PAYMENT_SERVICE_NAME, 'ListPayments')
-  listPayments(req: ListPaymentsRequest): ListPaymentsResponse {
-    return { payments: this.payments.listByOrder(req.orderId) };
+  async listPayments(req: ListPaymentsRequest): Promise<ListPaymentsResponse> {
+    return { payments: await this.payments.listByOrder(req.orderId) };
   }
 }

@@ -8,7 +8,7 @@ export class NotificationController {
   constructor(private readonly notifications: NotificationService) {}
 
   @GrpcMethod(NOTIFICATION_SERVICE_NAME, 'ListNotifications')
-  listNotifications(req: ListNotificationsRequest): ListNotificationsResponse {
-    return { notifications: this.notifications.listByUser(req.userId) };
+  async listNotifications(req: ListNotificationsRequest): Promise<ListNotificationsResponse> {
+    return { notifications: await this.notifications.listByUser(req.userId) };
   }
 }

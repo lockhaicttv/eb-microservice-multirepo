@@ -14,12 +14,14 @@ export const PAYMENT_EVENT_GROUP = 'payment-events';
 
 const MAX_ORDER_TOTAL = 10000;
 
+import { PaymentStore } from './payment.store';
+
 @Injectable()
 export class PaymentService implements OnModuleInit {
   private readonly logger = new Logger(PaymentService.name);
-  private readonly payments = new Map<string, Payment>();
 
   constructor(
+    private readonly payments: PaymentStore,
     @Inject(KAFKA) private readonly kafka: Kafka,
     @Inject(KAFKA_PRODUCER) private readonly producer: Producer,
     private readonly orkes: OrkesService,
@@ -50,7 +52,7 @@ export class PaymentService implements OnModuleInit {
       reason: paid ? undefined : `amount ${order.totalAmount} exceeds limit ${MAX_ORDER_TOTAL}`,
       createdAt: new Date().toISOString(),
     };
-    this.payments.set(record.id, record);
+    await this.payments.save(record);
 
     const topic = paid ? TOPICS.PAYMENT_CONFIRMED : TOPICS.PAYMENT_DECLINED;
     const message: PaymentDecisionEvent = {
@@ -66,7 +68,7 @@ export class PaymentService implements OnModuleInit {
     void this.orkes.onPaymentDecision(message);
   }
 
-  listByOrder(orderId: string): Payment[] {
-    return [...this.payments.values()].filter((p) => p.orderId === orderId);
+  async listByOrder(orderId: string): Promise<Payment[]> {
+    return this.payments.listByOrder(orderId);
   }
 }

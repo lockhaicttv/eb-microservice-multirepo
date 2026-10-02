@@ -12,12 +12,14 @@ import { OrkesService } from '../orkes/orkes.module';
 
 export const NOTIFICATION_EVENT_GROUP = 'notification-events';
 
+import { NotificationStore } from './notification.store';
+
 @Injectable()
 export class NotificationService implements OnModuleInit {
   private readonly logger = new Logger(NotificationService.name);
-  private readonly notifications = new Map<string, Notification>();
 
   constructor(
+    private readonly notifications: NotificationStore,
     @Inject(KAFKA) private readonly kafka: Kafka,
     @Inject(KAFKA_PRODUCER) private readonly producer: Producer,
     private readonly orkes: OrkesService,
@@ -46,18 +48,16 @@ export class NotificationService implements OnModuleInit {
         : `Your ticket purchase (order ${event.orderId}) was declined: ${event.reason}`,
       createdAt: new Date().toISOString(),
     };
-    this.notifications.set(record.id, record);
+    const saved = await this.notifications.save(record);
     await this.producer.send({
       topic: TOPICS.NOTIFICATION_CREATED,
-      messages: [{ value: JSON.stringify({ notification: record } satisfies NotificationCreatedEvent) }],
+      messages: [{ value: JSON.stringify({ notification: saved } satisfies NotificationCreatedEvent) }],
     });
-    this.logger.log(`notification created for ${event.userId}: ${record.type}`);
-    void this.orkes.onNotificationCreated(event.orderId, record);
+    this.logger.log(`notification created for ${event.userId}: ${saved.type}`);
+    void this.orkes.onNotificationCreated(event.orderId, saved);
   }
 
-  listByUser(userId: string): Notification[] {
-    return [...this.notifications.values()]
-      .filter((n) => n.userId === userId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  async listByUser(userId: string): Promise<Notification[]> {
+    return this.notifications.listByUser(userId);
   }
 }

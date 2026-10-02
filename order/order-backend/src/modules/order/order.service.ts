@@ -16,32 +16,9 @@ import {
 import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { OrkesService } from '../orkes/orkes.module';
+import { OrderStore } from './order.store';
 
 export const ORDER_EVENT_GROUP = 'order-events';
-
-@Injectable()
-export class OrderStore {
-  private readonly orders = new Map<string, Order>();
-  private seq = 0;
-
-  nextId(): string {
-    this.seq++;
-    return `o-${Date.now()}-${this.seq}`;
-  }
-
-  save(order: Order): Order {
-    this.orders.set(order.id, order);
-    return order;
-  }
-
-  get(id: string): Order | undefined {
-    return this.orders.get(id);
-  }
-
-  listByUser(userId: string): Order[] {
-    return [...this.orders.values()].filter((o) => o.userId === userId);
-  }
-}
 
 @Injectable()
 export class OrderService implements OnModuleInit {
@@ -49,7 +26,7 @@ export class OrderService implements OnModuleInit {
   private catalog!: CatalogServiceClient;
 
   constructor(
-    @Inject(OrderStore) private readonly orders: OrderStore,
+    private readonly orders: OrderStore,
     @Inject(CATALOG_SERVICE_NAME) private readonly clients: ClientGrpc,
     @Inject(KAFKA) private readonly kafka: Kafka,
     @Inject(KAFKA_PRODUCER) private readonly producer: Producer,
@@ -98,7 +75,7 @@ export class OrderService implements OnModuleInit {
       status: 'PENDING',
       createdAt: new Date().toISOString(),
     };
-    this.orders.save(order);
+    await this.orders.save(order);
 
     this.publish(TOPICS.ORDER_CREATED, { order } satisfies OrderCreatedEvent);
     this.logger.log(`order ${order.id} created with total ${order.totalAmount}`);
@@ -106,22 +83,22 @@ export class OrderService implements OnModuleInit {
     return order;
   }
 
-  get(id: string): Order | undefined {
+  async get(id: string): Promise<Order | undefined> {
     return this.orders.get(id);
   }
 
-  listByUser(userId: string): Order[] {
+  async listByUser(userId: string): Promise<Order[]> {
     return this.orders.listByUser(userId);
   }
 
   private async handlePaymentDecision(payload: EachMessagePayload) {
     const event: PaymentDecisionEvent = JSON.parse(payload.message.value!.toString());
-    const order = this.orders.get(event.orderId);
+    const order = await this.orders.get(event.orderId);
     if (!order || order.status !== 'PENDING') return;
 
     const previousStatus = order.status;
     order.status = event.status === 'PAID' ? 'PAID' : 'DECLINED';
-    this.orders.save(order);
+    await this.orders.save(order);
 
     const update: OrderStatusUpdatedEvent = {
       orderId: order.id,

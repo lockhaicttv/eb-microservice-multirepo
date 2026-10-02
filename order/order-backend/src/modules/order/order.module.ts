@@ -1,11 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { CATALOG_SERVICE_NAME, PACKAGE_NAME, demoProtoPath } from '@demo/contracts';
+import { OrderEntity } from '../../database/order.entity';
 import { OrderController } from './order.controller';
-import { OrderService, OrderStore } from './order.service';
+import { OrderService } from './order.service';
+import { OrderStore } from './order.store';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([OrderEntity]),
     ClientsModule.register([
       {
         name: CATALOG_SERVICE_NAME,

@@ -30,12 +30,12 @@ export class OrderController {
   }
 
   @GrpcMethod(ORDER_SERVICE_NAME, 'GetOrder')
-  getOrder(req: GetOrderRequest): GetOrderResponse {
-    return { order: this.orders.get(req.orderId) };
+  async getOrder(req: GetOrderRequest): Promise<GetOrderResponse> {
+    return { order: await this.orders.get(req.orderId) };
   }
 
   @GrpcMethod(ORDER_SERVICE_NAME, 'ListOrders')
-  listOrders(req: ListOrdersRequest): ListOrdersResponse {
-    return { orders: this.orders.listByUser(req.userId) };
+  async listOrders(req: ListOrdersRequest): Promise<ListOrdersResponse> {
+    return { orders: await this.orders.listByUser(req.userId) };
   }
 }
