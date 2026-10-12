@@ -1,6 +1,10 @@
 import { Inject, Injectable, Logger, OnModuleInit, Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AxiosInstance, Method } from 'axios';
 import { Order, OrderStatusUpdatedEvent, PaymentDecisionEvent, Notification } from '@demo/contracts';
+import { createWorkflowApi } from './api/axios';
+import callApi from './api/apiCaller';
+import { ORKES_DEFAULT_BASE_URL, ORKES_ENDPOINT } from './api/api-endpoints.constants';
 
 const WORKFLOW_NAME = 'order_flow';
 
@@ -30,17 +34,20 @@ const WORKFLOW_DEF = {
 // The workflow is started by the order backend; every other backend resolves the
 // run by searching Conductor for the correlationId (order id) because each
 // backend is its own process now.
+// All calls are fire-and-forget so the system works even if Conductor is down.
 @Injectable()
 export class OrkesService implements OnModuleInit {
   private readonly logger = new Logger(OrkesService.name);
   private readonly enabled: boolean;
   private readonly baseUrl: string;
-  private readonly runs = new Map<string, string>();
+  private readonly api: AxiosInstance;
+  private readonly runs = new Map<string, string>(); // orderId -> workflow (run) id
   private warned = false;
 
   constructor(@Inject(ConfigService) private readonly config: ConfigService) {
     this.enabled = (this.config.get<string>('ORKES_ENABLED') ?? 'true') === 'true';
-    this.baseUrl = this.config.get<string>('ORKES_URL') ?? 'http://localhost:8082/api';
+    this.baseUrl = this.config.get<string>('ORKES_URL') ?? ORKES_DEFAULT_BASE_URL;
+    this.api = createWorkflowApi(this.baseUrl);
   }
 
   async onModuleInit() {
@@ -51,11 +58,15 @@ export class OrkesService implements OnModuleInit {
   async onOrderCreated(order: Order) {
     if (!this.enabled) return;
     const runId = await this.safe('start workflow', () =>
-      this.post(`${this.baseUrl}/workflow`, {
-        name: WORKFLOW_NAME,
-        correlationId: order.id,
-        input: { orderId: order.id, userId: order.userId, totalAmount: order.totalAmount },
-      }),
+      this.call<string, undefined, { name: string; correlationId: string; input: Record<string, unknown> }>(
+        ORKES_ENDPOINT.workflow,
+        'post',
+        {
+          name: WORKFLOW_NAME,
+          correlationId: order.id,
+          input: { orderId: order.id, userId: order.userId, totalAmount: order.totalAmount },
+        },
+      ),
     );
     if (runId) this.runs.set(order.id, runId);
     await this.completeStage(order.id, 'order_created', {
@@ -111,10 +122,13 @@ export class OrkesService implements OnModuleInit {
 
   private async resolveRunId(orderId: string): Promise<string | undefined> {
     try {
-      const res = await fetch(`${this.baseUrl}/workflow/search?freeText=${encodeURIComponent(orderId)}&size=10`);
-      if (!res.ok) return undefined;
-      const body = (await res.json()) as { results?: Array<{ workflowId: string }> };
-      return body.results?.[0]?.workflowId;
+      const body = await this.call<{ results?: Array<{ workflowId: string }> }, { freeText: string; size: number }>(
+        `${ORKES_ENDPOINT.workflow}/search`,
+        'get',
+        undefined,
+        { freeText: orderId, size: 10 },
+      );
+      return body?.results?.[0]?.workflowId;
     } catch {
       return undefined;
     }
@@ -122,16 +136,18 @@ export class OrkesService implements OnModuleInit {
 
   private async completeByRef(runId: string, ref: string, output: Record<string, unknown>) {
     for (let attempt = 0; attempt < 10; attempt++) {
-      const wf = (await this.getJson(`${this.baseUrl}/workflow/${runId}`)) as {
+      const wf = (await this.call<{
         tasks?: Array<{ taskId: string; referenceTaskName: string; taskType?: string; status?: string }>;
-      };
-      const task = wf.tasks?.find((t) => t.referenceTaskName === ref);
+      }>(`${ORKES_ENDPOINT.workflow}/${runId}`, 'get')) as
+        | { tasks?: Array<{ taskId: string; referenceTaskName: string; taskType?: string; status?: string }> }
+        | undefined;
+      const task = wf?.tasks?.find((t) => t.referenceTaskName === ref);
       if (!task) {
         await this.sleep(500);
         continue;
       }
       if (task.status === 'COMPLETED') return;
-      await this.post(`${this.baseUrl}/tasks`, {
+      await this.call<unknown, undefined, Record<string, unknown>>(ORKES_ENDPOINT.tasks, 'post', {
         workflowInstanceId: runId,
         taskId: task.taskId,
         referenceTaskName: ref,
@@ -146,33 +162,21 @@ export class OrkesService implements OnModuleInit {
   }
 
   private async registerWorkflowDef() {
-    await this.put(`${this.baseUrl}/metadata/workflow`, [WORKFLOW_DEF]);
+    await this.call<void, undefined, { name: string }[]>(
+      ORKES_ENDPOINT.metadataWorkflow,
+      'put',
+      [WORKFLOW_DEF],
+    );
     this.logger.log(`[orkes] registered ${WORKFLOW_NAME} -> ${this.baseUrl}`);
   }
 
-  private async getJson(url: string): Promise<unknown> {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
-    return res.json();
-  }
-
-  private async post(url: string, body: unknown): Promise<string> {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`POST ${url} -> ${res.status}`);
-    return res.text();
-  }
-
-  private async put(url: string, body: unknown): Promise<void> {
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`PUT ${url} -> ${res.status}`);
+  private call<Response, RequestParams = undefined, RequestPayload = undefined>(
+    endpoint: string,
+    method: Method,
+    data?: RequestPayload,
+    params?: RequestParams,
+  ): Promise<Response | undefined> {
+    return callApi(this.api, endpoint, method, data, params);
   }
 
   private async safe(label: string, fn: () => Promise<unknown>): Promise<string> {

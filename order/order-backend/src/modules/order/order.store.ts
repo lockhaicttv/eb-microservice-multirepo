@@ -34,7 +34,7 @@ export class OrderStore {
   }
 
   async save(order: Order): Promise<Order> {
-    const saved = await this.orders.save(
+    await this.orders.save(
       this.orders.create({
         id: order.id,
         userId: order.userId,
@@ -48,7 +48,11 @@ export class OrderStore {
         })),
       }),
     );
-    return toContractOrder(saved);
+    // Reload so generated columns (created_at on UPDATE, defaults) are always
+    // populated; TypeORM does not reliably return @CreateDateColumn on update.
+    const row = await this.orders.findOne({ where: { id: order.id } });
+    if (!row) throw new Error(`order ${order.id} not found after save`);
+    return toContractOrder(row);
   }
 
   async get(id: string): Promise<Order | undefined> {
