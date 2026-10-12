@@ -1,6 +1,10 @@
 import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AxiosInstance } from 'axios';
 import { OrderStore } from '../order/order.store';
+import { createWorkflowApi } from './api/axios';
+import callApi from './api/apiCaller';
+import { ORKES_DEFAULT_BASE_URL, ORKES_ENDPOINT } from './api/api-endpoints.constants';
 
 const TASK_TYPE = 'refund_check_eligibility';
 
@@ -11,11 +15,21 @@ interface PolledTask {
   inputData?: { orderId?: string };
 }
 
+interface TaskUpdatePayload {
+  workflowInstanceId: string;
+  taskId: string;
+  referenceTaskName: string;
+  taskType: string;
+  status: string;
+  inputData: Record<string, unknown>;
+  outputData: Record<string, unknown>;
+}
+
 @Injectable()
 export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RefundWorkerService.name);
   private readonly enabled: boolean;
-  private readonly baseUrl: string;
+  private readonly api: AxiosInstance;
   private readonly pollIntervalMs: number;
   private readonly workerId: string;
   private stopped = false;
@@ -25,7 +39,7 @@ export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {
     this.enabled = (this.config.get<string>('ORKES_ENABLED') ?? 'true') === 'true';
-    this.baseUrl = this.config.get<string>('ORKES_URL') ?? 'http://localhost:8082/api';
+    this.api = createWorkflowApi(this.config.get<string>('ORKES_URL') ?? ORKES_DEFAULT_BASE_URL);
     this.pollIntervalMs = Number(this.config.get<string>('ORKES_REFUND_POLL_MS') ?? '1000');
     this.workerId = this.config.get<string>('ORKES_WORKER_ID') ?? 'order-backend-refund-worker';
   }
@@ -55,12 +69,14 @@ export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async poll(): Promise<PolledTask | undefined> {
-    const res = await fetch(
-      `${this.baseUrl}/tasks/poll/${TASK_TYPE}?workerid=${encodeURIComponent(this.workerId)}`,
+    const task = await callApi<PolledTask | undefined, { workerid: string }, undefined>(
+      this.api,
+      `${ORKES_ENDPOINT.tasks}/poll/${TASK_TYPE}`,
+      'get',
+      undefined,
+      { workerid: this.workerId },
     );
-    if (res.status === 204) return undefined;
-    if (!res.ok) throw new Error(`GET /tasks/poll/${TASK_TYPE} -> ${res.status}`);
-    const task = (await res.json()) as PolledTask;
+    if (!task) return undefined;
     this.logger.log(
       `[orkes-worker] polled ${TASK_TYPE} (task ${task.taskId}, run ${task.workflowInstanceId}) -> evaluating`,
     );
@@ -80,20 +96,16 @@ export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
   private async report(task: PolledTask, eligible: boolean, reason: string) {
     const outputData: Record<string, unknown> = { eligible };
     if (reason) outputData.reason = reason;
-    const res = await fetch(`${this.baseUrl}/tasks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        workflowInstanceId: task.workflowInstanceId,
-        taskId: task.taskId,
-        referenceTaskName: task.referenceTaskName,
-        taskType: TASK_TYPE,
-        status: 'COMPLETED',
-        inputData: task.inputData ?? {},
-        outputData,
-      }),
-    });
-    if (!res.ok) throw new Error(`POST /tasks -> ${res.status}`);
+    const payload: TaskUpdatePayload = {
+      workflowInstanceId: task.workflowInstanceId,
+      taskId: task.taskId,
+      referenceTaskName: task.referenceTaskName,
+      taskType: TASK_TYPE,
+      status: 'COMPLETED',
+      inputData: task.inputData ?? {},
+      outputData,
+    };
+    await callApi<unknown, undefined, TaskUpdatePayload>(this.api, ORKES_ENDPOINT.tasks, 'post', payload);
     this.logger.log(
       `[orkes-worker] ${TASK_TYPE} ${eligible ? 'COMPLETED(eligible)' : `COMPLETED(not eligible: ${reason})`} (task ${task.taskId})`,
     );
