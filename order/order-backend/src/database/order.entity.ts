@@ -1,6 +1,14 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Check,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from "typeorm";
 
-export type OrderStatus = 'PENDING' | 'PAID' | 'DECLINED';
+export type OrderStatus = "PENDING" | "PAID" | "DECLINED" | "REFUNDED";
 
 export interface OrderLineEntity {
   productId: string;
@@ -15,26 +23,29 @@ export interface OrderLineEntity {
  * embedded as JSONB because the order is immutable history and we don't need to
  * query across individual line items.
  */
-@Entity({ name: 'orders' })
+@Check(`status IN ('PENDING','PAID','DECLINED','REFUNDED')`)
+@Entity({ name: "orders" })
+@Index("idx_orders_user_id", ["userId"])
+@Index("idx_orders_created_at", ["createdAt"])
 export class OrderEntity {
-  @PrimaryColumn({ type: 'varchar', length: 64 })
+  @PrimaryColumn({ type: "varchar", length: 64 })
   id!: string;
 
-  @Column({ name: 'user_id', type: 'uuid' })
+  @Column({ name: "user_id", type: "uuid" })
   userId!: string;
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column({ type: "varchar", length: 20 })
   status!: OrderStatus;
 
-  @Column({ name: 'total_amount', type: 'numeric', precision: 12, scale: 2 })
+  @Column({ name: "total_amount", type: "numeric", precision: 12, scale: 2 })
   totalAmount!: string;
 
-  @Column({ name: 'line_items', type: 'jsonb' })
+  @Column({ name: "line_items", type: "jsonb" })
   lineItems!: OrderLineEntity[];
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
   updatedAt!: Date;
 }

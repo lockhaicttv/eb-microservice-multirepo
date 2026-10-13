@@ -1,7 +1,12 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { Check, Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 
-export type NotificationType = 'TICKETS_CONFIRMED' | 'TICKETS_DECLINED';
+export type NotificationType =
+  | 'TICKETS_CONFIRMED'
+  | 'TICKETS_DECLINED'
+  | 'REFUND_ISSUED'
+  | 'REFUND_REJECTED';
 
+@Check(`type IN ('TICKETS_CONFIRMED','TICKETS_DECLINED','REFUND_ISSUED','REFUND_REJECTED')`)
 @Entity({ name: 'notifications' })
 export class NotificationEntity {
   @PrimaryColumn({ type: 'varchar', length: 64 })
