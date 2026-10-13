@@ -64,6 +64,7 @@ export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
       } catch (err) {
         this.logger.warn(`[orkes-worker] poll/process failed: ${(err as Error).message}`);
       }
+      
       await this.sleep(this.pollIntervalMs);
     }
   }
@@ -76,36 +77,49 @@ export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
       undefined,
       { workerid: this.workerId },
     );
+
     if (!task) return undefined;
+
     this.logger.log(
       `[orkes-worker] polled ${TASK_TYPE} (task ${task.taskId}, run ${task.workflowInstanceId}) -> evaluating`,
     );
+
     return task;
   }
 
   private async evaluate(task: PolledTask): Promise<{ eligible: boolean; reason: string }> {
     const orderId = task.inputData?.orderId;
+
     if (!orderId) return { eligible: false, reason: 'MISSING_ORDER_ID' };
+
     const order = await this.orders.get(orderId);
+
     if (!order) return { eligible: false, reason: 'ORDER_NOT_FOUND' };
+
     if (order.status !== 'PAID') return { eligible: false, reason: `NOT_PAID:${order.status}` };
+
     this.logger.log(`[orkes-worker] order ${order.id} is eligible for refund`);
+
     return { eligible: true, reason: '' };
   }
 
   private async report(task: PolledTask, eligible: boolean, reason: string) {
     const outputData: Record<string, unknown> = { eligible };
+
     if (reason) outputData.reason = reason;
+
     const payload: TaskUpdatePayload = {
       workflowInstanceId: task.workflowInstanceId,
       taskId: task.taskId,
       referenceTaskName: task.referenceTaskName,
       taskType: TASK_TYPE,
-      status: 'COMPLETED',
+      status: 'COMPLETED', 
       inputData: task.inputData ?? {},
       outputData,
     };
+
     await callApi<unknown, undefined, TaskUpdatePayload>(this.api, ORKES_ENDPOINT.tasks, 'post', payload);
+
     this.logger.log(
       `[orkes-worker] ${TASK_TYPE} ${eligible ? 'COMPLETED(eligible)' : `COMPLETED(not eligible: ${reason})`} (task ${task.taskId})`,
     );
