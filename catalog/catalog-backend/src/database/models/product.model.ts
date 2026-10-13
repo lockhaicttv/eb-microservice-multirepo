@@ -28,19 +28,4 @@ export class Product {
     );
   }
 
-  /**
-   * Map back to a row. `id` is assigned because new listings rely on the
-   * database default (`gen_random_uuid()::text`) when it is left blank, so this
-   * is only meaningful for a product that already has an id.
-   */
-  toEntity(): ProductEntity {
-    const entity = new ProductEntity();
-    entity.id = this.id;
-    entity.name = this.name;
-    entity.description = this.description;
-    entity.price = this.price.toFixed(2);
-    entity.stock = this.stock;
-    entity.ownerUserId = this.ownerUserId || null;
-    return entity;
-  }
 }

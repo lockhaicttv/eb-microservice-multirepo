@@ -39,23 +39,6 @@ export class Order {
     );
   }
 
-  /** Map back to a row. Timestamps are DB-managed, so they are omitted. */
-  toEntity(): OrderEntity {
-    const entity = new OrderEntity();
-    entity.id = this.id;
-    entity.userId = this.userId;
-    entity.status = this.status;
-    // numeric round-trips as a string; write a fixed 2-decimal string.
-    entity.totalAmount = this.totalAmount.toFixed(2);
-    entity.lineItems = this.lineItems.map((l) => ({
-      productId: l.productId,
-      productName: l.productName,
-      unitPrice: l.unitPrice,
-      quantity: l.quantity,
-    }));
-    return entity;
-  }
-
   /** Return a copy of this order in a new state (orders are append-only history). */
   withStatus(status: OrderStatus): Order {
     return new Order(this.id, this.userId, status, this.totalAmount, this.lineItems, this.createdAt);

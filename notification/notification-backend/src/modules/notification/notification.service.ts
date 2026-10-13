@@ -5,6 +5,7 @@ import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { v7 as uuidv7 } from 'uuid';
 import { OrkesService } from '../orkes/orkes.module';
+import { NotificationEntity } from '../../database/entities/notification.entity';
 import { Notification } from '../../database/models/notification.model';
 
 export const NOTIFICATION_EVENT_GROUP = 'notification-events';
@@ -36,25 +37,30 @@ export class NotificationService implements OnModuleInit {
   private async handlePayment(payload: EachMessagePayload) {
     const event: PaymentDecisionEvent = JSON.parse(payload.message.value!.toString());
     const paid = event.status === 'PAID';
-    const record = new Notification(
-      uuidv7(),
-      event.userId,
-      paid ? 'TICKETS_CONFIRMED' : 'TICKETS_DECLINED',
-      paid
-        ? `Your ${event.totalAmount} ticket purchase (order ${event.orderId}) is confirmed.`
-        : `Your ticket purchase (order ${event.orderId}) was declined: ${event.reason}`,
-      new Date().toISOString(),
-    );
-    const saved = await this.notifications.save(record);
+
+    const entity = new NotificationEntity();
+    entity.id = uuidv7();
+    entity.userId = event.userId;
+    entity.type = paid ? 'TICKETS_CONFIRMED' : 'TICKETS_DECLINED';
+    entity.message = paid
+      ? `Your ${event.totalAmount} ticket purchase (order ${event.orderId}) is confirmed.`
+      : `Your ticket purchase (order ${event.orderId}) was declined: ${event.reason}`;
+    const saved = await this.notifications.save(entity);
+
+    const notification = Notification.fromEntity(saved);
     await this.producer.send({
       topic: TOPICS.NOTIFICATION_CREATED,
-      messages: [{ value: JSON.stringify({ notification: saved } satisfies NotificationCreatedEvent) }],
+      messages: [{ value: JSON.stringify({ notification } satisfies NotificationCreatedEvent) }],
     });
-    this.logger.log(`notification created for ${event.userId}: ${saved.type}`);
-    void this.orkes.onNotificationCreated(event.orderId, saved);
+    this.logger.log(`notification created for ${event.userId}: ${notification.type}`);
+    void this.orkes.onNotificationCreated(event.orderId, notification);
   }
 
   async listByUser(userId: string): Promise<Notification[]> {
-    return this.notifications.listByUser(userId);
+    const rows = await this.notifications.find({
+      where: { userId },
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+    return rows.map((row) => Notification.fromEntity(row));
   }
 }

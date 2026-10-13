@@ -29,16 +29,4 @@ export class Payment {
     );
   }
 
-  /** Timestamps are DB-managed, so they are omitted. */
-  toEntity(): PaymentEntity {
-    const entity = new PaymentEntity();
-    entity.id = this.id;
-    entity.orderId = this.orderId;
-    entity.userId = this.userId;
-    // numeric round-trips as a string; write a fixed 2-decimal string.
-    entity.totalAmount = this.totalAmount.toFixed(2);
-    entity.status = this.status;
-    entity.reason = this.reason ?? null;
-    return entity;
-  }
 }

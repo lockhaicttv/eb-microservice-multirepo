@@ -26,13 +26,4 @@ export class Notification {
     );
   }
 
-  /** Timestamps are DB-managed, so they are omitted. */
-  toEntity(): NotificationEntity {
-    const entity = new NotificationEntity();
-    entity.id = this.id;
-    entity.userId = this.userId;
-    entity.type = this.type;
-    entity.message = this.message;
-    return entity;
-  }
 }

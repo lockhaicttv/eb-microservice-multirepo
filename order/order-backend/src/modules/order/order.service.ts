@@ -16,6 +16,7 @@ import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { OrkesService } from '../orkes/orkes.module';
 import { v7 as uuidv7 } from 'uuid';
+import { OrderEntity } from '../../database/entities/order.entity';
 import { Order } from '../../database/models/order.model';
 import { OrderRepository } from './order.repository';
 
@@ -68,9 +69,16 @@ export class OrderService implements OnModuleInit {
     }
 
     const totalAmount = normalized.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
-    const order = new Order(uuidv7(), userId, 'PENDING', totalAmount, normalized, new Date().toISOString());
-    await this.orders.save(order);
 
+    const entity = new OrderEntity();
+    entity.id = uuidv7();
+    entity.userId = userId;
+    entity.status = 'PENDING';
+    entity.totalAmount = totalAmount.toFixed(2);
+    entity.lineItems = normalized;
+    const saved = await this.orders.save(entity);
+
+    const order = Order.fromEntity(saved);
     this.publish(TOPICS.ORDER_CREATED, { order } satisfies OrderCreatedEvent);
     this.logger.log(`order ${order.id} created with total ${order.totalAmount}`);
     void this.orkes.onOrderCreated(order);
@@ -78,31 +86,36 @@ export class OrderService implements OnModuleInit {
   }
 
   async get(id: string): Promise<Order | undefined> {
-    return this.orders.get(id);
+    const row = await this.orders.findOne({ where: { id } });
+    return row ? Order.fromEntity(row) : undefined;
   }
 
   async listByUser(userId: string): Promise<Order[]> {
-    return this.orders.listByUser(userId);
+    const rows = await this.orders.find({
+      where: { userId },
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+    return rows.map((row) => Order.fromEntity(row));
   }
 
   private async handlePaymentDecision(payload: EachMessagePayload) {
     const event: PaymentDecisionEvent = JSON.parse(payload.message.value!.toString());
-    const order = await this.orders.get(event.orderId);
-    if (!order || order.status !== 'PENDING') return;
+    const row = await this.orders.findOne({ where: { id: event.orderId } });
+    if (!row || row.status !== 'PENDING') return;
 
-    const previousStatus = order.status;
-    const updated = order.withStatus(event.status === 'PAID' ? 'PAID' : 'DECLINED');
-    await this.orders.save(updated);
+    const previousStatus = row.status;
+    row.status = event.status === 'PAID' ? 'PAID' : 'DECLINED';
+    const saved = await this.orders.save(row);
 
     const update: OrderStatusUpdatedEvent = {
-      orderId: updated.id,
-      userId: updated.userId,
-      status: updated.status,
+      orderId: saved.id,
+      userId: saved.userId,
+      status: saved.status,
       previousStatus,
-      totalAmount: updated.totalAmount,
+      totalAmount: Number(saved.totalAmount),
     };
     this.publish(TOPICS.ORDER_STATUS_UPDATED, update);
-    this.logger.log(`order ${updated.id} ${previousStatus} -> ${updated.status}`);
+    this.logger.log(`order ${saved.id} ${previousStatus} -> ${saved.status}`);
     void this.orkes.onOrderUpdated(update);
   }
 

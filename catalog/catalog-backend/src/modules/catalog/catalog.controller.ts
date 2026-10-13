@@ -14,6 +14,7 @@ import {
 } from '@demo/contracts';
 import { CatalogAuthService } from './catalog-auth.service';
 import { ProductRepository } from './product.repository';
+import { Product } from '../../database/models/product.model';
 import { canManageOwnEvents } from './roles';
 
 /**
@@ -111,13 +112,18 @@ export class CatalogController {
 
   @GrpcMethod(CATALOG_SERVICE_NAME, 'ListProducts')
   async listProducts(req: ListProductsRequest): Promise<ListProductsResponse> {
-    const products = await handle(this.logger, 'listProducts', () => this.products.list(req?.query));
+    const products = await handle(this.logger, 'listProducts', async () =>
+      (await this.products.list(req?.query)).map((row) => Product.fromEntity(row)),
+    );
     return { products };
   }
 
   @GrpcMethod(CATALOG_SERVICE_NAME, 'GetProduct')
   async getProduct(req: GetProductRequest): Promise<GetProductResponse> {
-    const product = await handle(this.logger, 'getProduct', () => this.products.get(req.productId));
+    const product = await handle(this.logger, 'getProduct', async () => {
+      const row = await this.products.findOne({ where: { id: req.productId } });
+      return row ? Product.fromEntity(row) : undefined;
+    });
     return { product };
   }
 
@@ -131,7 +137,8 @@ export class CatalogController {
         price: req.price,
         stock: req.stock,
       });
-      return this.products.create({ ...listing, ownerUserId: owner.id });
+      const saved = await this.products.createListing({ ...listing, ownerUserId: owner.id });
+      return Product.fromEntity(saved);
     });
     return { product };
   }
@@ -140,7 +147,11 @@ export class CatalogController {
   async listOwnerProducts(req: ListOwnerProductsRequest): Promise<ListOwnerProductsResponse> {
     const products = await handle(this.logger, 'listOwnerProducts', async () => {
       const owner = await this.requireEventManager(req.accessToken ?? '');
-      return this.products.listByOwner(owner.id);
+      const rows = await this.products.find({
+        where: { ownerUserId: owner.id },
+        order: { createdAt: 'DESC', id: 'DESC' },
+      });
+      return rows.map((row) => Product.fromEntity(row));
     });
     return { products };
   }

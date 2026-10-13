@@ -5,6 +5,7 @@ import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { v7 as uuidv7 } from 'uuid';
 import { OrkesService } from '../orkes/orkes.module';
+import { PaymentEntity } from '../../database/entities/payment.entity';
 import { Payment } from '../../database/models/payment.model';
 
 export const PAYMENT_EVENT_GROUP = 'payment-events';
@@ -40,16 +41,15 @@ export class PaymentService implements OnModuleInit {
     const { order } = event;
 
     const paid = order.totalAmount <= MAX_ORDER_TOTAL;
-    const record = new Payment(
-      uuidv7(),
-      order.id,
-      order.userId,
-      order.totalAmount,
-      paid ? 'PAID' : 'DECLINED',
-      paid ? undefined : `amount ${order.totalAmount} exceeds limit ${MAX_ORDER_TOTAL}`,
-      new Date().toISOString(),
-    );
-    await this.payments.save(record);
+
+    const entity = new PaymentEntity();
+    entity.id = uuidv7();
+    entity.orderId = order.id;
+    entity.userId = order.userId;
+    entity.totalAmount = order.totalAmount.toFixed(2);
+    entity.status = paid ? 'PAID' : 'DECLINED';
+    entity.reason = paid ? null : `amount ${order.totalAmount} exceeds limit ${MAX_ORDER_TOTAL}`;
+    const saved = await this.payments.save(entity);
 
     const topic = paid ? TOPICS.PAYMENT_CONFIRMED : TOPICS.PAYMENT_DECLINED;
     const message: PaymentDecisionEvent = {
@@ -57,15 +57,19 @@ export class PaymentService implements OnModuleInit {
       userId: order.userId,
       totalAmount: order.totalAmount,
       status: paid ? 'PAID' : 'DECLINED',
-      reason: record.reason,
+      reason: saved.reason ?? undefined,
     };
 
     await this.producer.send({ topic, messages: [{ value: JSON.stringify(message) }] });
-    this.logger.log(`payment for ${order.id}: ${record.status} (${topic})`);
+    this.logger.log(`payment for ${order.id}: ${saved.status} (${topic})`);
     void this.orkes.onPaymentDecision(message);
   }
 
   async listByOrder(orderId: string): Promise<Payment[]> {
-    return this.payments.listByOrder(orderId);
+    const rows = await this.payments.find({
+      where: { orderId },
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+    return rows.map((row) => Payment.fromEntity(row));
   }
 }
