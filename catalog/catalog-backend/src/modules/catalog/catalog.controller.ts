@@ -13,7 +13,7 @@ import {
   ListProductsResponse,
 } from '@demo/contracts';
 import { CatalogAuthService } from './catalog-auth.service';
-import { ProductsStore } from './products.store';
+import { ProductRepository } from './product.repository';
 import { canManageOwnEvents } from './roles';
 
 /**
@@ -105,7 +105,7 @@ export class CatalogController {
   private readonly logger = new Logger(CatalogController.name);
 
   constructor(
-    private readonly products: ProductsStore,
+    private readonly products: ProductRepository,
     private readonly auth: CatalogAuthService,
   ) {}
 

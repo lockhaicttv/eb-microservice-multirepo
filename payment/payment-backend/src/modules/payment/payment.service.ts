@@ -8,20 +8,21 @@ import {
 } from '@demo/contracts';
 import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
+import { v7 as uuidv7 } from 'uuid';
 import { OrkesService } from '../orkes/orkes.module';
 
 export const PAYMENT_EVENT_GROUP = 'payment-events';
 
 const MAX_ORDER_TOTAL = 10000;
 
-import { PaymentStore } from './payment.store';
+import { PaymentRepository } from './payment.repository';
 
 @Injectable()
 export class PaymentService implements OnModuleInit {
   private readonly logger = new Logger(PaymentService.name);
 
   constructor(
-    private readonly payments: PaymentStore,
+    private readonly payments: PaymentRepository,
     @Inject(KAFKA) private readonly kafka: Kafka,
     @Inject(KAFKA_PRODUCER) private readonly producer: Producer,
     private readonly orkes: OrkesService,
@@ -44,7 +45,7 @@ export class PaymentService implements OnModuleInit {
 
     const paid = order.totalAmount <= MAX_ORDER_TOTAL;
     const record: Payment = {
-      id: `pay-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: uuidv7(),
       orderId: order.id,
       userId: order.userId,
       totalAmount: order.totalAmount,

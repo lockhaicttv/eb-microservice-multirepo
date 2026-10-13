@@ -8,18 +8,19 @@ import {
 } from '@demo/contracts';
 import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
+import { v7 as uuidv7 } from 'uuid';
 import { OrkesService } from '../orkes/orkes.module';
 
 export const NOTIFICATION_EVENT_GROUP = 'notification-events';
 
-import { NotificationStore } from './notification.store';
+import { NotificationRepository } from './notification.repository';
 
 @Injectable()
 export class NotificationService implements OnModuleInit {
   private readonly logger = new Logger(NotificationService.name);
 
   constructor(
-    private readonly notifications: NotificationStore,
+    private readonly notifications: NotificationRepository,
     @Inject(KAFKA) private readonly kafka: Kafka,
     @Inject(KAFKA_PRODUCER) private readonly producer: Producer,
     private readonly orkes: OrkesService,
@@ -40,7 +41,7 @@ export class NotificationService implements OnModuleInit {
     const event: PaymentDecisionEvent = JSON.parse(payload.message.value!.toString());
     const paid = event.status === 'PAID';
     const record: Notification = {
-      id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: uuidv7(),
       userId: event.userId,
       type: paid ? 'TICKETS_CONFIRMED' : 'TICKETS_DECLINED',
       message: paid

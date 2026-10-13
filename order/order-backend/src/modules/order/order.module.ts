@@ -5,7 +5,7 @@ import { CATALOG_SERVICE_NAME, PACKAGE_NAME, demoProtoPath } from '@demo/contrac
 import { OrderEntity } from '../../database/order.entity';
 import { OrderController } from './order.controller';
 import { OrderService } from './order.service';
-import { OrderStore } from './order.store';
+import { OrderRepository } from './order.repository';
 import { RefundWorkerService } from '../orkes/refund-worker.service';
 
 @Module({
@@ -25,6 +25,6 @@ import { RefundWorkerService } from '../orkes/refund-worker.service';
     ]),
   ],
   controllers: [OrderController],
-  providers: [OrderService, OrderStore, RefundWorkerService],
+  providers: [OrderService, OrderRepository, RefundWorkerService],
 })
 export class OrderModule {}

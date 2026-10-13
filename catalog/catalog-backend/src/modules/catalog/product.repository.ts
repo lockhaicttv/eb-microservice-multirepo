@@ -2,17 +2,22 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from '@demo/contracts';
-import { ProductEntity } from '../../database/product.entity';
+import { ProductEntity, fromEntity } from '../../database/product.entity';
 
 /**
+ * Product persistence adapter. Wraps the TypeORM repository with catalog-specific
+ * operations and keeps entity types out of the application layer: callers work
+ * with the `Product` contract only, and the entity owns the row <-> contract
+ * mapping (`fromEntity`).
+ *
  * Demo catalog is seeded as live EVENTS, each mapped onto the `Product` gRPC wire type
  * (name -> event title, price -> ticket price, stock -> tickets left / capacity).
  * Domestic contract stays `products`; the event/ticket vocabulary is exposed at the BFF
  * GraphQL layer. Event owners write new listings through `create`.
  */
 @Injectable()
-export class ProductsStore {
-  private readonly logger = new Logger(ProductsStore.name);
+export class ProductRepository {
+  private readonly logger = new Logger(ProductRepository.name);
 
   constructor(
     @InjectRepository(ProductEntity) private readonly products: Repository<ProductEntity>,
@@ -41,7 +46,7 @@ export class ProductsStore {
           .getMany()
       : await this.products.find({ order: { createdAt: 'ASC', id: 'ASC' } });
 
-    return rows.map(toContractProduct);
+    return rows.map(fromEntity);
   }
 
   /**
@@ -50,7 +55,7 @@ export class ProductsStore {
    */
   async get(id: string): Promise<Product | undefined> {
     const row = await this.products.findOne({ where: { id } });
-    return row ? toContractProduct(row) : undefined;
+    return row ? fromEntity(row) : undefined;
   }
 
   /**
@@ -72,7 +77,7 @@ export class ProductsStore {
       }),
     );
     this.logger.log(`event ${saved.id} created by owner ${saved.ownerUserId}`);
-    return toContractProduct(saved);
+    return fromEntity(saved);
   }
 
   /** The owner dashboard: only this owner's listings, newest first. */
@@ -81,22 +86,6 @@ export class ProductsStore {
       where: { ownerUserId },
       order: { createdAt: 'DESC', id: 'DESC' },
     });
-    return rows.map(toContractProduct);
+    return rows.map(fromEntity);
   }
-}
-
-/**
- * Explicit projection onto the shared contract. The entity carries
- * `ownerUserId` as nullable while the wire type uses an empty string, so the
- * "platform-curated" case is a value every consumer can test for.
- */
-function toContractProduct(entity: ProductEntity): Product {
-  return {
-    id: entity.id,
-    name: entity.name,
-    description: entity.description,
-    price: Number(entity.price),
-    stock: entity.stock,
-    ownerUserId: entity.ownerUserId ?? '',
-  };
 }

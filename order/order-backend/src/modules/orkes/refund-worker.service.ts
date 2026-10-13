@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosInstance } from 'axios';
-import { OrderStore } from '../order/order.store';
+import { OrderRepository } from '../order/order.repository';
 import { createWorkflowApi } from './api/axios';
 import callApi from './api/apiCaller';
 import { ORKES_DEFAULT_BASE_URL, ORKES_ENDPOINT } from './api/api-endpoints.constants';
@@ -35,7 +35,7 @@ export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
   private stopped = false;
 
   constructor(
-    private readonly orders: OrderStore,
+    private readonly orders: OrderRepository,
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {
     this.enabled = (this.config.get<string>('ORKES_ENABLED') ?? 'true') === 'true';

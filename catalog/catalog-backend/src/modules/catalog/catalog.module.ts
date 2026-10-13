@@ -6,7 +6,7 @@ import { ProductEntity } from '../../database/product.entity';
 import { AUTH_GRPC_URL } from './catalog-auth.service';
 import { CatalogAuthService } from './catalog-auth.service';
 import { CatalogController } from './catalog.controller';
-import { ProductsStore } from './products.store';
+import { ProductRepository } from './product.repository';
 
 @Module({
   imports: [
@@ -27,6 +27,6 @@ import { ProductsStore } from './products.store';
     ]),
   ],
   controllers: [CatalogController],
-  providers: [ProductsStore, CatalogAuthService],
+  providers: [ProductRepository, CatalogAuthService],
 })
 export class CatalogModule {}

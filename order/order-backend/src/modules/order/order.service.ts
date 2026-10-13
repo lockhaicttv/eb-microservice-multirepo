@@ -16,7 +16,8 @@ import {
 import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { OrkesService } from '../orkes/orkes.module';
-import { OrderStore } from './order.store';
+import { v7 as uuidv7 } from 'uuid';
+import { OrderRepository } from './order.repository';
 
 export const ORDER_EVENT_GROUP = 'order-events';
 
@@ -26,7 +27,7 @@ export class OrderService implements OnModuleInit {
   private catalog!: CatalogServiceClient;
 
   constructor(
-    private readonly orders: OrderStore,
+    private readonly orders: OrderRepository,
     @Inject(CATALOG_SERVICE_NAME) private readonly clients: ClientGrpc,
     @Inject(KAFKA) private readonly kafka: Kafka,
     @Inject(KAFKA_PRODUCER) private readonly producer: Producer,
@@ -68,7 +69,7 @@ export class OrderService implements OnModuleInit {
 
     const totalAmount = normalized.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
     const order: Order = {
-      id: this.orders.nextId(),
+      id: uuidv7(),
       userId,
       lineItems: normalized,
       totalAmount,
