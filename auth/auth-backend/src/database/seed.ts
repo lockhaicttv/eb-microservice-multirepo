@@ -1,7 +1,7 @@
 import * as bcrypt from 'bcryptjs';
 import { USER_ROLES, UserRole } from '@demo/contracts';
 import { AppDataSource } from './data-source';
-import { UserEntity } from './user.entity';
+import { UserEntity } from './entities/user.entity';
 
 /**
  * Idempotent seed for the demo accounts referenced in the README

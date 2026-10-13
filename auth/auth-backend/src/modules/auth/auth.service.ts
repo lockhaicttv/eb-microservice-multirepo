@@ -3,8 +3,9 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { USER_ROLES, User, UserRole, ValidateTokenResponse, isRole } from '@demo/contracts';
-import { UserEntity } from '../../database/user.entity';
+import { USER_ROLES, UserRole, ValidateTokenResponse, isRole } from '@demo/contracts';
+import { UserEntity } from '../../database/entities/user.entity';
+import { User } from '../../database/models/user.model';
 import { ASSIGNABLE_ROLES, capabilitiesFor } from './roles';
 
 /** Postgres invalid-text-representation (SQLSTATE 22P02), e.g. a non-uuid id. */
@@ -41,22 +42,6 @@ const DUMMY_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
  * otherwise `A@b.dev` and `a@b.dev` would both insert as distinct rows.
  */
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
-
-/**
- * Explicit projection onto the shared contract. The entity also carries
- * `passwordHash`, which must never cross the gRPC boundary.
- *
- * An unrecognised stored role degrades to CUSTOMER rather than being passed
- * through, so a bad row can never grant extra capability.
- */
-function toContractUser(entity: UserEntity): User {
-  return {
-    id: entity.id,
-    email: entity.email,
-    name: entity.name,
-    role: isRole(entity.role) ? entity.role : USER_ROLES.CUSTOMER,
-  };
-}
 
 /**
  * Domain errors carrying a gRPC status. The controller maps these directly, so
@@ -130,7 +115,7 @@ export class AuthService {
     // the token/response reflects what was actually persisted.
     const persisted = (await this.users.findOne({ where: { id: saved.id } })) ?? saved;
     const token = this.jwt.sign(this.toPayload(persisted));
-    return { accessToken: token, user: toContractUser(persisted) };
+    return { accessToken: token, user: User.fromEntity(persisted) };
   }
 
   async login(email: string, password: string) {
@@ -142,7 +127,7 @@ export class AuthService {
     if (!record || !matches) throw new AuthError('INVALID_CREDENTIALS', 'INVALID_CREDENTIALS');
 
     const token = this.jwt.sign(this.toPayload(record));
-    return { accessToken: token, user: toContractUser(record) };
+    return { accessToken: token, user: User.fromEntity(record) };
   }
 
   /**
@@ -191,7 +176,7 @@ export class AuthService {
     });
     if (!record) throw new AuthError('UNAUTHENTICATED', 'UNAUTHORIZED');
 
-    return toContractUser(record);
+    return User.fromEntity(record);
   }
 
   /**
@@ -219,7 +204,7 @@ export class AuthService {
   async listUsers(accessToken: string): Promise<User[]> {
     await this.assertCapability(accessToken, 'manage_users');
     const records = await this.users.find({ order: { createdAt: 'ASC' } });
-    return records.map(toContractUser);
+    return records.map((record) => User.fromEntity(record));
   }
 
   /**
@@ -246,7 +231,7 @@ export class AuthService {
     record.role = role as UserRole;
     const saved = await this.users.save(record);
     this.logger.log(`admin ${admin.id} set ${saved.id} role -> ${saved.role}`);
-    return toContractUser(saved);
+    return User.fromEntity(saved);
   }
 
   private toPayload(record: UserEntity): TokenPayload {

@@ -6,7 +6,6 @@ import {
   CATALOG_SERVICE_NAME,
   CatalogServiceClient,
   CreateOrderLine,
-  Order,
   OrderCreatedEvent,
   OrderLine,
   OrderStatusUpdatedEvent,
@@ -17,6 +16,7 @@ import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { OrkesService } from '../orkes/orkes.module';
 import { v7 as uuidv7 } from 'uuid';
+import { Order } from '../../database/models/order.model';
 import { OrderRepository } from './order.repository';
 
 export const ORDER_EVENT_GROUP = 'order-events';
@@ -68,14 +68,7 @@ export class OrderService implements OnModuleInit {
     }
 
     const totalAmount = normalized.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
-    const order: Order = {
-      id: uuidv7(),
-      userId,
-      lineItems: normalized,
-      totalAmount,
-      status: 'PENDING',
-      createdAt: new Date().toISOString(),
-    };
+    const order = new Order(uuidv7(), userId, 'PENDING', totalAmount, normalized, new Date().toISOString());
     await this.orders.save(order);
 
     this.publish(TOPICS.ORDER_CREATED, { order } satisfies OrderCreatedEvent);
@@ -98,18 +91,18 @@ export class OrderService implements OnModuleInit {
     if (!order || order.status !== 'PENDING') return;
 
     const previousStatus = order.status;
-    order.status = event.status === 'PAID' ? 'PAID' : 'DECLINED';
-    await this.orders.save(order);
+    const updated = order.withStatus(event.status === 'PAID' ? 'PAID' : 'DECLINED');
+    await this.orders.save(updated);
 
     const update: OrderStatusUpdatedEvent = {
-      orderId: order.id,
-      userId: order.userId,
-      status: order.status,
+      orderId: updated.id,
+      userId: updated.userId,
+      status: updated.status,
       previousStatus,
-      totalAmount: order.totalAmount,
+      totalAmount: updated.totalAmount,
     };
     this.publish(TOPICS.ORDER_STATUS_UPDATED, update);
-    this.logger.log(`order ${order.id} ${previousStatus} -> ${order.status}`);
+    this.logger.log(`order ${updated.id} ${previousStatus} -> ${updated.status}`);
     void this.orkes.onOrderUpdated(update);
   }
 

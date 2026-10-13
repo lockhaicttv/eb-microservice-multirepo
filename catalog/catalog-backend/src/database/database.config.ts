@@ -1,6 +1,6 @@
 import { config as loadEnv } from 'dotenv';
 import { DataSourceOptions } from 'typeorm';
-import { ProductEntity } from './product.entity';
+import { ProductEntity } from './entities/product.entity';
 import { InitialCatalogSchema1735000000000 } from './migrations/1735000000000-InitialCatalogSchema';
 
 // The Nest runtime gets .env from ConfigModule, but the `typeorm` CLI boots

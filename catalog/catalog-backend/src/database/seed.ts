@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { AppDataSource } from './data-source';
-import { ProductEntity } from './product.entity';
+import { ProductEntity } from './entities/product.entity';
 
 /**
  * The demo listings that used to live in an in-memory array.

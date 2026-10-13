@@ -1,16 +1,9 @@
-import { Check, Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 
-export type RefundStatus = 'ISSUED' | 'FAILED';
+export type PaymentStatus = 'PENDING' | 'PAID' | 'DECLINED';
 
-/**
- * Refund aggregate. A refund is a distinct money movement from the original
- * payment, so it lives in its own table keyed by `order_id`. The primary key is
- * the `refundId` the `refund_issue_payment` Orkes task reports back to the
- * workflow (consumed by `refund_notify_refunded`).
- */
-@Check(`status IN ('ISSUED','FAILED')`)
-@Entity({ name: 'refunds' })
-export class RefundEntity {
+@Entity({ name: 'payments' })
+export class PaymentEntity {
   @PrimaryColumn({ type: 'varchar', length: 64 })
   id!: string;
 
@@ -24,7 +17,7 @@ export class RefundEntity {
   totalAmount!: string;
 
   @Column({ type: 'varchar', length: 20 })
-  status!: RefundStatus;
+  status!: PaymentStatus;
 
   @Column({ type: 'text', nullable: true })
   reason!: string | null;

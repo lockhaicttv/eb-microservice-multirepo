@@ -1,15 +1,11 @@
 import { Inject, Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { EachMessagePayload, Kafka, Producer } from 'kafkajs';
-import {
-  Notification,
-  NotificationCreatedEvent,
-  PaymentDecisionEvent,
-  TOPICS,
-} from '@demo/contracts';
+import { NotificationCreatedEvent, PaymentDecisionEvent, TOPICS } from '@demo/contracts';
 import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { v7 as uuidv7 } from 'uuid';
 import { OrkesService } from '../orkes/orkes.module';
+import { Notification } from '../../database/models/notification.model';
 
 export const NOTIFICATION_EVENT_GROUP = 'notification-events';
 
@@ -40,15 +36,15 @@ export class NotificationService implements OnModuleInit {
   private async handlePayment(payload: EachMessagePayload) {
     const event: PaymentDecisionEvent = JSON.parse(payload.message.value!.toString());
     const paid = event.status === 'PAID';
-    const record: Notification = {
-      id: uuidv7(),
-      userId: event.userId,
-      type: paid ? 'TICKETS_CONFIRMED' : 'TICKETS_DECLINED',
-      message: paid
+    const record = new Notification(
+      uuidv7(),
+      event.userId,
+      paid ? 'TICKETS_CONFIRMED' : 'TICKETS_DECLINED',
+      paid
         ? `Your ${event.totalAmount} ticket purchase (order ${event.orderId}) is confirmed.`
         : `Your ticket purchase (order ${event.orderId}) was declined: ${event.reason}`,
-      createdAt: new Date().toISOString(),
-    };
+      new Date().toISOString(),
+    );
     const saved = await this.notifications.save(record);
     await this.producer.send({
       topic: TOPICS.NOTIFICATION_CREATED,

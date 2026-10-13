@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AUTH_SERVICE_NAME, PACKAGE_NAME, demoProtoPath } from '@demo/contracts';
-import { ProductEntity } from '../../database/product.entity';
+import { ProductEntity } from '../../database/entities/product.entity';
 import { AUTH_GRPC_URL } from './catalog-auth.service';
 import { CatalogAuthService } from './catalog-auth.service';
 import { CatalogController } from './catalog.controller';

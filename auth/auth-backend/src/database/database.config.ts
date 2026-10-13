@@ -1,6 +1,6 @@
 import { config as loadEnv } from 'dotenv';
 import { DataSourceOptions } from 'typeorm';
-import { UserEntity } from './user.entity';
+import { UserEntity } from './entities/user.entity';
 import { InitialSchema1735000000000 } from './migrations/1735000000000-InitialSchema';
 import { AddUserRole1735000001000 } from './migrations/1735000001000-AddUserRole';
 

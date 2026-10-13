@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Product } from '@demo/contracts';
-import { ProductEntity, fromEntity } from '../../database/product.entity';
+import { ProductEntity } from '../../database/entities/product.entity';
+import { Product } from '../../database/models/product.model';
 
 /**
  * Product persistence adapter. Wraps the TypeORM repository with catalog-specific
  * operations and keeps entity types out of the application layer: callers work
- * with the `Product` contract only, and the entity owns the row <-> contract
+ * with the `Product` domain model only, and the model owns the row <-> domain
  * mapping (`fromEntity`).
  *
  * Demo catalog is seeded as live EVENTS, each mapped onto the `Product` gRPC wire type
@@ -46,7 +46,7 @@ export class ProductRepository {
           .getMany()
       : await this.products.find({ order: { createdAt: 'ASC', id: 'ASC' } });
 
-    return rows.map(fromEntity);
+    return rows.map((row) => Product.fromEntity(row));
   }
 
   /**
@@ -55,7 +55,7 @@ export class ProductRepository {
    */
   async get(id: string): Promise<Product | undefined> {
     const row = await this.products.findOne({ where: { id } });
-    return row ? fromEntity(row) : undefined;
+    return row ? Product.fromEntity(row) : undefined;
   }
 
   /**
@@ -77,7 +77,7 @@ export class ProductRepository {
       }),
     );
     this.logger.log(`event ${saved.id} created by owner ${saved.ownerUserId}`);
-    return fromEntity(saved);
+    return Product.fromEntity(saved);
   }
 
   /** The owner dashboard: only this owner's listings, newest first. */
@@ -86,6 +86,6 @@ export class ProductRepository {
       where: { ownerUserId },
       order: { createdAt: 'DESC', id: 'DESC' },
     });
-    return rows.map(fromEntity);
+    return rows.map((row) => Product.fromEntity(row));
   }
 }

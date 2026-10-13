@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Notification } from '@demo/contracts';
-import { NotificationEntity, fromEntity, toEntity } from '../../database/notification.entity';
+import { NotificationEntity } from '../../database/entities/notification.entity';
+import { Notification } from '../../database/models/notification.model';
 
 /**
  * Notification persistence adapter. Wraps the TypeORM repository with
  * notification-specific operations and keeps entity types out of the
- * application layer: callers work with the `Notification` contract only, and the
- * entity owns the row <-> contract mapping (`fromEntity` / `toEntity`).
+ * application layer: callers work with the `Notification` domain model only, and
+ * the model owns the row <-> domain mapping (`fromEntity` / `toEntity`).
  */
 @Injectable()
 export class NotificationRepository {
@@ -17,8 +17,8 @@ export class NotificationRepository {
   ) {}
 
   async save(notification: Notification): Promise<Notification> {
-    const saved = await this.notifications.save(toEntity(notification));
-    return fromEntity(saved);
+    const saved = await this.notifications.save(notification.toEntity());
+    return Notification.fromEntity(saved);
   }
 
   async listByUser(userId: string): Promise<Notification[]> {
@@ -26,6 +26,6 @@ export class NotificationRepository {
       where: { userId },
       order: { createdAt: 'DESC', id: 'DESC' },
     });
-    return rows.map(fromEntity);
+    return rows.map((row) => Notification.fromEntity(row));
   }
 }

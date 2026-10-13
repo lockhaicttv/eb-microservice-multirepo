@@ -1,15 +1,11 @@
 import { Inject, Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { EachMessagePayload, Kafka, Producer } from 'kafkajs';
-import {
-  OrderCreatedEvent,
-  Payment,
-  PaymentDecisionEvent,
-  TOPICS,
-} from '@demo/contracts';
+import { OrderCreatedEvent, PaymentDecisionEvent, TOPICS } from '@demo/contracts';
 import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { v7 as uuidv7 } from 'uuid';
 import { OrkesService } from '../orkes/orkes.module';
+import { Payment } from '../../database/models/payment.model';
 
 export const PAYMENT_EVENT_GROUP = 'payment-events';
 
@@ -44,15 +40,15 @@ export class PaymentService implements OnModuleInit {
     const { order } = event;
 
     const paid = order.totalAmount <= MAX_ORDER_TOTAL;
-    const record: Payment = {
-      id: uuidv7(),
-      orderId: order.id,
-      userId: order.userId,
-      totalAmount: order.totalAmount,
-      status: paid ? 'PAID' : 'DECLINED',
-      reason: paid ? undefined : `amount ${order.totalAmount} exceeds limit ${MAX_ORDER_TOTAL}`,
-      createdAt: new Date().toISOString(),
-    };
+    const record = new Payment(
+      uuidv7(),
+      order.id,
+      order.userId,
+      order.totalAmount,
+      paid ? 'PAID' : 'DECLINED',
+      paid ? undefined : `amount ${order.totalAmount} exceeds limit ${MAX_ORDER_TOTAL}`,
+      new Date().toISOString(),
+    );
     await this.payments.save(record);
 
     const topic = paid ? TOPICS.PAYMENT_CONFIRMED : TOPICS.PAYMENT_DECLINED;

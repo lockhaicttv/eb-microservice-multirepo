@@ -1,5 +1,4 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, UpdateDateColumn } from 'typeorm';
-import { Product } from '@demo/contracts';
 
 /**
  * Catalog-owned table. The `catalog` database belongs to this service alone — no
@@ -58,20 +57,4 @@ export class ProductEntity {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
-}
-
-/**
- * Explicit projection onto the shared contract. The entity carries `ownerUserId`
- * as nullable while the wire type uses an empty string, so the "platform-curated"
- * case is a value every consumer can test for.
- */
-export function fromEntity(entity: ProductEntity): Product {
-  return {
-    id: entity.id,
-    name: entity.name,
-    description: entity.description,
-    price: Number(entity.price),
-    stock: entity.stock,
-    ownerUserId: entity.ownerUserId ?? '',
-  };
 }
