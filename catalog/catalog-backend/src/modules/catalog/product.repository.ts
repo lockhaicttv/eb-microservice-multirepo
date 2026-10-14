@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
+import { v7 as uuidv7 } from 'uuid';
 import { ProductEntity } from '../../database/entities/product.entity';
 
 /**
@@ -58,6 +59,10 @@ export class ProductRepository extends Repository<ProductEntity> {
     startsAt?: Date | null;
   }): Promise<ProductEntity> {
     const entity = this.create();
+    // Ids are time-ordered uuidv7 assigned by the service, matching order/
+    // payment/notification. PostgreSQL 16 has no native uuidv7(), so the column
+    // default (gen_random_uuid) is only a fallback for inserts that omit an id.
+    entity.id = uuidv7();
     entity.name = input.name;
     entity.description = input.description;
     // numeric columns round-trip as strings; write a fixed 2-decimal string so

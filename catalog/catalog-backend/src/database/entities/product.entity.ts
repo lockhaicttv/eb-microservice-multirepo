@@ -6,8 +6,9 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, UpdateDateColum
  *
  * `id` is a varchar, not a uuid, because the demo's seeded listings are addressed
  * as `e-1`..`e-5` by the frontend (artwork lookup) and by any order line already
- * written against those ids. New rows fall back to a uuid at the database level,
- * so ids stay unique without every writer having to invent one.
+ * written against those ids. New listings get a time-ordered uuidv7 assigned by
+ * the service (`ProductRepository.createListing`); the column also keeps a random
+ * uuid default so any insert that omits an id still stays unique.
  *
  * `ownerUserId` is a plain uuid reference to an auth-backend user id, NOT a
  * foreign key: the `auth` and `catalog` databases are separate Postgres schemas
