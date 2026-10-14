@@ -4,7 +4,7 @@ import { NotificationCreatedEvent, PaymentDecisionEvent, TOPICS } from '@demo/co
 import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { v7 as uuidv7 } from 'uuid';
-import { OrkesService } from '../orkes/orkes.module';
+import { OrkesService } from '../orkes/orkes.service';
 import { NotificationEntity } from '../../database/entities/notification.entity';
 import { Notification } from '../../database/models/notification.model';
 

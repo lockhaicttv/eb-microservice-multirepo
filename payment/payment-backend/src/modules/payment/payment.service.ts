@@ -4,7 +4,7 @@ import { OrderCreatedEvent, PaymentDecisionEvent, TOPICS } from '@demo/contracts
 import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
 import { v7 as uuidv7 } from 'uuid';
-import { OrkesService } from '../orkes/orkes.module';
+import { OrkesService } from '../orkes/orkes.service';
 import { PaymentEntity } from '../../database/entities/payment.entity';
 import { Payment } from '../../database/models/payment.model';
 

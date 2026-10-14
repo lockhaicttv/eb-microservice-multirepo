@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { RefundRepository } from './refund.repository';
-import { RefundIssueWorkerService } from '../orkes/refund-issue-worker.service';
+import { RefundIssuePaymentHandler } from '../orkes/handlers/refund/refund-issue-payment.handler';
 
 @Module({
-  providers: [RefundRepository, RefundIssueWorkerService],
+  providers: [RefundRepository, RefundIssuePaymentHandler],
   exports: [RefundRepository],
 })
 export class RefundModule {}
