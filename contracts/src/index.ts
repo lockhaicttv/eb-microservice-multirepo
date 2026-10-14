@@ -116,6 +116,11 @@ export interface Product {
   stock: number;
   /** Empty string for platform-curated (seeded) events, which have no owner. */
   ownerUserId: string;
+  /**
+   * ISO-8601 timestamp of when the event starts. Empty string when unknown.
+   * Added in contract 0.6.0.
+   */
+  startsAt: string;
 }
 
 export interface ListProductsRequest {
@@ -140,6 +145,8 @@ export interface CreateProductRequest {
   description: string;
   price: number;
   stock: number;
+  /** Optional ISO-8601 event start. Added in contract 0.6.0; omit to leave unset. */
+  startsAt?: string;
 }
 
 export interface CreateProductResponse {

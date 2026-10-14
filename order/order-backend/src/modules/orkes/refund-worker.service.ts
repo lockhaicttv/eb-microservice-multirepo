@@ -6,7 +6,11 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { ClientGrpc } from "@nestjs/microservices";
 import { AxiosInstance } from "axios";
+import { firstValueFrom } from "rxjs";
+import { CATALOG_SERVICE_NAME, CatalogServiceClient } from "@demo/contracts";
+import { OrderEntity } from "../../database/entities/order.entity";
 import { OrderRepository } from "../order/order.repository";
 import { createWorkflowApi } from "./api/axios";
 import callApi from "./api/apiCaller";
@@ -42,10 +46,12 @@ export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
   private readonly pollIntervalMs: number;
   private readonly workerId: string;
   private stopped = false;
+  private catalog!: CatalogServiceClient;
 
   constructor(
     private readonly orders: OrderRepository,
     @Inject(ConfigService) private readonly config: ConfigService,
+    @Inject(CATALOG_SERVICE_NAME) private readonly clients: ClientGrpc,
   ) {
     this.enabled =
       (this.config.get<string>("ORKES_ENABLED") ?? "true") === "true";
@@ -63,6 +69,8 @@ export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     if (!this.enabled) return;
 
+    this.catalog =
+      this.clients.getService<CatalogServiceClient>(CATALOG_SERVICE_NAME);
     void this.pollLoop();
   }
 
@@ -121,9 +129,41 @@ export class RefundWorkerService implements OnModuleInit, OnModuleDestroy {
     if (order.status !== "PAID")
       return { eligible: false, reason: `NOT_PAID:${order.status}` };
 
+    const started = await this.findStartedEvent(order);
+    if (started)
+      return { eligible: false, reason: `EVENT_ALREADY_STARTED:${started}` };
+
     this.logger.log(`[orkes-worker] order ${order.id} is eligible for refund`);
 
     return { eligible: true, reason: "" };
+  }
+
+  /**
+   * Returns the id of the first line item's event that has already started, or
+   * `undefined` if every event on the order is still upcoming. A refund is only
+   * allowed while nothing on the order has begun.
+   *
+   * The start time is not stored on the order (it is catalog-owned), so this
+   * asks catalog-backend over gRPC. An unknown start (`startsAt` empty) or a
+   * product we cannot find is treated as "not started" — we only refuse a refund
+   * on positive evidence that the event has begun.
+   */
+  private async findStartedEvent(order: OrderEntity): Promise<string | undefined> {
+    const productIds = [
+      ...new Set((order.lineItems ?? []).map((line) => line.productId)),
+    ];
+    const now = Date.now();
+
+    for (const productId of productIds) {
+      const res = await firstValueFrom(this.catalog.getProduct({ productId }));
+      const startsAt = res.product?.startsAt;
+      if (!startsAt) continue;
+
+      const startedAt = Date.parse(startsAt);
+      if (Number.isFinite(startedAt) && startedAt <= now) return productId;
+    }
+
+    return undefined;
   }
 
   private async report(task: PolledTask, eligible: boolean, reason: string) {

@@ -83,6 +83,11 @@ message Product {
   // platform-curated (the seeded listings) and belongs to no user.
   // Field 6 was added in contract 0.5.0; older readers ignore it.
   string ownerUserId = 6;
+  // When the event starts, as an RFC 3339 / ISO-8601 timestamp. Empty string
+  // means the start time is unknown. Refund eligibility uses this: a refund is
+  // only allowed while the event has not started yet.
+  // Field 7 was added in contract 0.6.0; older readers ignore it.
+  string startsAt = 7;
 }
 
 message ListProductsRequest {
@@ -110,6 +115,9 @@ message CreateProductRequest {
   string description = 3;
   double price = 4;
   int32 stock = 5;
+  // Optional ISO-8601 event start. Empty string leaves it unset.
+  // Field 6 was added in contract 0.6.0; older callers may omit it.
+  string startsAt = 6;
 }
 
 message CreateProductResponse {

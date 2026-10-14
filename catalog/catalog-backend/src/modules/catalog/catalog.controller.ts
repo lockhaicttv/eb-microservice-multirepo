@@ -75,11 +75,18 @@ const MAX_STOCK = 1_000_000;
  * cases — a blank name or an absurd title has to be refused here, where the
  * caller can be told why.
  */
-function validateListing(input: { name: string; description: string; price: number; stock: number }): {
+function validateListing(input: {
   name: string;
   description: string;
   price: number;
   stock: number;
+  startsAt?: string;
+}): {
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+  startsAt: Date | null;
 } {
   const name = (input.name ?? '').trim();
   if (!name) throw new CatalogError('INVALID_ARGUMENT', 'NAME_REQUIRED');
@@ -98,7 +105,22 @@ function validateListing(input: { name: string; description: string; price: numb
     throw new CatalogError('INVALID_ARGUMENT', 'STOCK_OUT_OF_RANGE');
   }
 
-  return { name, description, price: input.price, stock: input.stock };
+  return { name, description, price: input.price, stock: input.stock, startsAt: parseStartsAt(input.startsAt) };
+}
+
+/**
+ * An empty/absent start is allowed (the event's start is simply unknown). A
+ * non-empty value must be a parseable date, so a typo can never silently turn
+ * into "started at the epoch" — which would wrongly block every refund.
+ */
+function parseStartsAt(value: string | undefined): Date | null {
+  const raw = (value ?? '').trim();
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new CatalogError('INVALID_ARGUMENT', 'STARTS_AT_INVALID');
+  }
+  return parsed;
 }
 
 @Controller()
@@ -136,6 +158,7 @@ export class CatalogController {
         description: req.description,
         price: req.price,
         stock: req.stock,
+        startsAt: req.startsAt,
       });
       const saved = await this.products.createListing({ ...listing, ownerUserId: owner.id });
       return Product.fromEntity(saved);

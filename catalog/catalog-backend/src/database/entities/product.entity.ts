@@ -52,6 +52,14 @@ export class ProductEntity {
   @Column({ name: 'owner_user_id', type: 'uuid', nullable: true })
   ownerUserId!: string | null;
 
+  /**
+   * When the event starts. NULL means the start time is unknown. Refund
+   * eligibility compares this against "now": once the event has started, the
+   * order can no longer be refunded.
+   */
+  @Column({ name: 'starts_at', type: 'timestamptz', nullable: true })
+  startsAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

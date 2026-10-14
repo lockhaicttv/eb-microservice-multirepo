@@ -19,6 +19,8 @@ const SEED_EVENTS: Array<{
   description: string;
   price: string;
   stock: number;
+  /** Days from "now"; negative = already started, positive = upcoming. */
+  startsInDays: number;
 }> = [
   {
     id: 'e-1',
@@ -26,6 +28,7 @@ const SEED_EVENTS: Array<{
     description: 'Semi-acoustic set under the trees (standing)',
     price: '25.00',
     stock: 200,
+    startsInDays: -30,
   },
   {
     id: 'e-2',
@@ -33,6 +36,7 @@ const SEED_EVENTS: Array<{
     description: '3-band indie lineup, indoor stage',
     price: '60.00',
     stock: 120,
+    startsInDays: -10,
   },
   {
     id: 'e-3',
@@ -40,6 +44,7 @@ const SEED_EVENTS: Array<{
     description: '2-day conference, all talks + expo',
     price: '300.00',
     stock: 40,
+    startsInDays: 30,
   },
   {
     id: 'e-4',
@@ -47,6 +52,7 @@ const SEED_EVENTS: Array<{
     description: '3-day camping festival with 40 artists',
     price: '1200.00',
     stock: 30,
+    startsInDays: 90,
   },
   {
     id: 'e-5',
@@ -54,8 +60,14 @@ const SEED_EVENTS: Array<{
     description: 'Meet-and-greet + backstage access (over-limit tier)',
     price: '12000.00',
     stock: 5,
+    startsInDays: 180,
   },
 ];
+
+/** A start date `days` from now (negative for a past event). */
+function startsAt(days: number): Date {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
 
 /**
  * Idempotent seed: an event that already exists is left untouched, so re-running
@@ -77,6 +89,7 @@ export async function seedCatalog(): Promise<void> {
       price: event.price,
       stock: event.stock,
       ownerUserId: null,
+      startsAt: startsAt(event.startsInDays),
     });
     created++;
   }

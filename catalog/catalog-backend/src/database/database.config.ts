@@ -2,6 +2,7 @@ import { config as loadEnv } from 'dotenv';
 import { DataSourceOptions } from 'typeorm';
 import { ProductEntity } from './entities/product.entity';
 import { InitialCatalogSchema1735000000000 } from './migrations/1735000000000-InitialCatalogSchema';
+import { AddProductStartsAt1791897000000 } from './migrations/1791897000000-AddProductStartsAt';
 
 // The Nest runtime gets .env from ConfigModule, but the `typeorm` CLI boots
 // plain Node, so load it here. Missing file is fine — env vars may be set
@@ -26,7 +27,7 @@ export function buildDataSourceOptions(databaseUrl?: string): DataSourceOptions 
     entities: [ProductEntity],
     // Migrations are registered explicitly rather than globbed, so adding a file
     // does not silently change what a deploy applies.
-    migrations: [InitialCatalogSchema1735000000000],
+    migrations: [InitialCatalogSchema1735000000000, AddProductStartsAt1791897000000],
     // Schema is owned by migrations. `synchronize` is opt-in and off by default
     // so a running database can never be silently rewritten from entity metadata.
     synchronize: process.env.DB_SYNCHRONIZE === 'true',

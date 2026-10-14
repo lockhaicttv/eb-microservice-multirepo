@@ -55,6 +55,7 @@ export class ProductRepository extends Repository<ProductEntity> {
     price: number;
     stock: number;
     ownerUserId: string;
+    startsAt?: Date | null;
   }): Promise<ProductEntity> {
     const entity = this.create();
     entity.name = input.name;
@@ -65,6 +66,7 @@ export class ProductRepository extends Repository<ProductEntity> {
     entity.price = input.price.toFixed(2);
     entity.stock = input.stock;
     entity.ownerUserId = input.ownerUserId;
+    entity.startsAt = input.startsAt ?? null;
     const saved = await this.save(entity);
     this.logger.log(`event ${saved.id} created by owner ${saved.ownerUserId}`);
     return saved;
