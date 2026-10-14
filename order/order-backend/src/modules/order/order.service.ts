@@ -14,7 +14,7 @@ import {
 } from '@demo/contracts';
 import { KAFKA, KAFKA_PRODUCER } from '../../kafka/kafka-core.module';
 import { createConsumer } from '../../kafka/kafka.utils';
-import { OrkesService } from '../orkes/orkes.module';
+import { OrkesService } from '../orkes/orkes.service';
 import { v7 as uuidv7 } from 'uuid';
 import { OrderEntity } from '../../database/entities/order.entity';
 import { Order } from '../../database/models/order.model';

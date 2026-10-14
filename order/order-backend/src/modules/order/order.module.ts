@@ -6,7 +6,8 @@ import { OrderEntity } from '../../database/entities/order.entity';
 import { OrderController } from './order.controller';
 import { OrderService } from './order.service';
 import { OrderRepository } from './order.repository';
-import { RefundWorkerService } from '../orkes/refund-worker.service';
+import { RefundCheckEligibilityHandler } from '../orkes/handlers/refund/refund-check-eligibility.handler';
+import { RefundMarkRefundedHandler } from '../orkes/handlers/refund/refund-mark-refunded.handler';
 
 @Module({
   imports: [
@@ -25,6 +26,11 @@ import { RefundWorkerService } from '../orkes/refund-worker.service';
     ]),
   ],
   controllers: [OrderController],
-  providers: [OrderService, OrderRepository, RefundWorkerService],
+  providers: [
+    OrderService,
+    OrderRepository,
+    RefundCheckEligibilityHandler,
+    RefundMarkRefundedHandler,
+  ],
 })
 export class OrderModule {}
